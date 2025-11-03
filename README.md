@@ -109,6 +109,75 @@ uv run sb compare --pair B0E9FE54488F=b0:e9:fe:54:48:8f@co2 --pair F2B202064A8B=
 - `--pair` follows `deviceId=BLE_MAC[@type]`. If `@type` is omitted, the CLI guesses based on the device type returned by the API.
 - Output shows API values, BLE values, and deltas for temperature, humidity, CO2, and battery when both sources reported data.
 
+## Raspberry Pi サービス運用
+Raspberry Pi OS 上で 60 秒ごとに `sb run` を常駐実行し、計測結果を InfluxDB に書き込む例です。
+
+1. Raspberry Pi に必要パッケージを用意します。
+   ```bash
+   sudo apt update
+   sudo apt install python3 python3-pip bluetooth bluez
+   pipx install uv  # pipx が無ければ `python3 -m pip install --user uv`
+   ```
+2. 本リポジトリをサービスで使うディレクトリに配置し、依存を解決します。
+   ```bash
+   sudo mkdir -p /opt/homeserver
+   sudo chown -R pi:pi /opt/homeserver    # 実行ユーザーに合わせて変更
+   cd /opt/homeserver
+   git clone <このリポジトリ> .
+   uv sync
+   ```
+3. 環境変数ファイルを作成します。
+   ```bash
+   sudo tee /etc/switchbot.env >/dev/null <<'EOF'
+   SWITCHBOT_TOKEN=xxxxxxxxxxxxxxxxxxxx
+   SWITCHBOT_SECRET=yyyyyyyyyyyyyyyyyyyy
+   INFLUX_URL=http://influxdb.local:8086
+   INFLUX_BUCKET_OR_DB=home-sensors
+   INFLUX_TOKEN=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+   LOCATION_PREFIX=home-
+   REQUEST_TIMEOUT_S=10
+   EF_MODEL=none
+   USE_V3_NATIVE=false
+   SWITCHBOT_MODE=ble
+   SWITCHBOT_BLE_DEVICES=B0:E9:FE:54:48:8F@co2=bedroom,F2:B2:02:06:4A:8B@meter=toilet
+   SWITCHBOT_BLE_SCAN_TIMEOUT=20
+   EOF
+   ```
+   `SWITCHBOT_BLE_DEVICES` や `SWITCHBOT_BLE_SCAN_TIMEOUT` は環境に合わせて調整します。
+4. systemd ユニットを `/etc/systemd/system/switchbot.service` に作成します。
+   ```ini
+   [Unit]
+   Description=SwitchBot sensor collector
+   After=network-online.target bluetooth.service
+   Wants=network-online.target bluetooth.service
+
+   [Service]
+   Type=simple
+   WorkingDirectory=/opt/homeserver
+   EnvironmentFile=/etc/switchbot.env
+   ExecStart=/usr/bin/env uv run sb run --interval 60 --mode ble --ble-scan-timeout 20
+   Restart=on-failure
+   User=pi
+   Group=pi
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   - `ExecStart` は `which uv` で確認できるパスに変更しても構いません。
+   - Bluetooth の許可が必要な場合、`User` を `pi` のままなら `sudo usermod -aG bluetooth pi` を追加します。
+5. systemd に読み込ませ、起動します。
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now switchbot.service
+   ```
+6. 動作確認は以下の通りです。
+   ```bash
+   sudo systemctl status switchbot.service
+   journalctl -u switchbot.service -f
+   ```
+
+ユニットは 60 秒間隔 (`--interval 60`) で BLE スキャンを実行し、指定した InfluxDB に書き込みます。必要に応じてコマンドライン引数や環境変数を調整してください。
+
 ## Testing
 Run the unit test suite with:
 
