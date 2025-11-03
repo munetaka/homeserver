@@ -2,10 +2,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SwitchBot (Cloud API v1.1) -> InfluxDB v2/v3 Writer (Typer CLI)
+SwitchBot (Cloud API v1.1 / BLE) -> InfluxDB v2/v3 Writer (Typer CLI)
 
 機能:
-- SwitchBot の温湿度/CO2/電池を取得
+- SwitchBot の温湿度/CO2/電池を取得（クラウドAPIまたはBLEを選択）
 - 絶対湿度 (abs_humidity, g/m^3) を「岡田の式(液水, -30..50℃) + 増強係数 f(T,P)」で算出
   - -30℃未満は安全側で Goff–Gratch(氷) にフォールバック
   - f(T,P) は EF_MODEL=none/buck/its90 で切替（既定 none）
@@ -22,23 +22,34 @@ ENV (.env 推奨):
   REQUEST_TIMEOUT_S       (任意, 既定 "10")
   USE_V3_NATIVE           ("true"/"false", 既定 "false")
   EF_MODEL                ("none"|"buck"|"its90", 既定 "none")
+  SWITCHBOT_MODE          ("api"|"ble", 既定 "api")
+  SWITCHBOT_BLE_DEVICES   (例: "AA:BB:CC:DD:EE:FF@meter=Living,11:22:33:44:55:66@co2=Office")
+  SWITCHBOT_BLE_SCAN_TIMEOUT (任意, 既定 "5")
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import base64
 import math
 import os
 import time
 import uuid
-import hmac
-import hashlib
 from typing import Annotated, Dict, List, Optional
 
 import requests
 import typer
 from dotenv import load_dotenv
 from urllib.parse import urljoin
+
+from .switchbot_ble import (
+    BleTarget,
+    SwitchBotReading,
+    collect_ble_readings,
+    parse_ble_targets,
+    scan_switchbot_devices,
+)
 
 app = typer.Typer(add_completion=False, help="Home sensors: SwitchBot -> InfluxDB writer")
 
@@ -63,6 +74,8 @@ _OKADA_WATER_COEFF = {
     "a4": -3.863083e-9,
 }
 
+SUPPORTED_MODES = {"api", "ble"}
+
 # ---------------------------------------------------------------------
 # 共通ユーティリティ
 # ---------------------------------------------------------------------
@@ -70,6 +83,24 @@ _OKADA_WATER_COEFF = {
 def _require(v: Optional[str], name: str):
     if not v:
         raise typer.BadParameter(f"環境変数 {name} が未設定です")
+
+
+def _coerce_float(value) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_int(value) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
 
 def _load_env():
     load_dotenv()
@@ -83,6 +114,9 @@ def _load_env():
         "REQUEST_TIMEOUT_S": float(os.getenv("REQUEST_TIMEOUT_S", "10")),
         "USE_V3_NATIVE": os.getenv("USE_V3_NATIVE", "false").lower() == "true",
         "EF_MODEL": os.getenv("EF_MODEL", "none"),
+        "SWITCHBOT_MODE": os.getenv("SWITCHBOT_MODE", "api").lower(),
+        "SWITCHBOT_BLE_DEVICES": os.getenv("SWITCHBOT_BLE_DEVICES", ""),
+        "SWITCHBOT_BLE_SCAN_TIMEOUT": float(os.getenv("SWITCHBOT_BLE_SCAN_TIMEOUT", "5")),
     }
     return env
 
@@ -224,80 +258,130 @@ def _write_influx(
 # データ収集
 # ---------------------------------------------------------------------
 
-def _collect_once(
-    location_prefix: str,
+def _collect_api_readings(
     token: str,
     secret: str,
     timeout_s: float,
-    ef_model: str = "none",
-) -> list[str]:
+) -> List[SwitchBotReading]:
     devices = _get_devices(token, secret, timeout_s)
-    ts_ms = int(time.time() * 1000)
-    lines: list[str] = []
+    readings: List[SwitchBotReading] = []
+    for device in devices:
+        dtype = device.get("deviceType", "") or "unknown"
+        device_id = device.get("deviceId") or dtype
+        name = device.get("deviceName") or device_id
 
-    for d in devices:
-        dtype = d.get("deviceType", "")
-        device_id = d.get("deviceId")
-        name = d.get("deviceName") or device_id
-
-        # まずはタイプでフィルタ。ただし不明タイプでも status に必要キーがあれば拾う
         if dtype in METER_TYPES:
-            st = _get_status(device_id, token, secret, timeout_s)
+            status = _get_status(device_id, token, secret, timeout_s)
         else:
             try:
-                st = _get_status(device_id, token, secret, timeout_s)
+                status = _get_status(device_id, token, secret, timeout_s)
             except Exception:
                 continue
-            if not any(k in st for k in ("temperature", "humidity", "co2")):
+            if not any(k in status for k in ("temperature", "humidity", "co2", "battery")):
                 continue
 
-        temp = st.get("temperature")
-        hum  = st.get("humidity")
-        batt = st.get("battery")
-        co2  = st.get("co2")
-
-        if temp is None and hum is None and co2 is None:
+        temperature = _coerce_float(status.get("temperature"))
+        humidity = _coerce_float(status.get("humidity"))
+        co2 = _coerce_int(status.get("co2"))
+        battery = _coerce_int(status.get("battery"))
+        if temperature is None and humidity is None and co2 is None and battery is None:
             continue
 
-        abs_h = None
-        if temp is not None and hum is not None:
-            try:
-                abs_h = calc_abs_humidity_gm3_okada(
-                    float(temp), float(hum),
-                    pres_hpa=1013.25,
-                    f_model=ef_model,
-                )
-            except Exception:
-                abs_h = None
+        readings.append(
+            SwitchBotReading(
+                device_id=device_id,
+                name=name,
+                device_type=dtype,
+                temperature=temperature,
+                humidity=humidity,
+                co2=co2,
+                battery=battery,
+            )
+        )
+    return readings
 
-        tags = {
-            "location": f"{location_prefix}{name}",
-            "device_id": device_id,
-            "type": dtype,
-        }
-        fields: dict[str, float | int] = {}
-        if temp is not None:
-            fields["temperature"] = float(temp)          # ℃
-        if hum is not None:
-            fields["humidity"] = float(hum)              # RH %
+
+def _gather_readings(
+    mode: str,
+    token: Optional[str],
+    secret: Optional[str],
+    timeout_s: float,
+    ble_targets: Optional[List[BleTarget]],
+    ble_scan_timeout_s: float,
+) -> List[SwitchBotReading]:
+    if mode == "api":
+        if not token or not secret:
+            raise RuntimeError("SwitchBot API token/secret are required for API mode")
+        return _collect_api_readings(token, secret, timeout_s)
+    elif mode == "ble":
+        targets = ble_targets or []
+        return collect_ble_readings(targets, ble_scan_timeout_s)
+    else:
+        raise RuntimeError(f"Unsupported mode '{mode}'")
+
+
+def _reading_to_line(
+    reading: SwitchBotReading,
+    location_prefix: str,
+    ef_model: str,
+    ts_ms: int,
+) -> Optional[str]:
+    fields: Dict[str, float | int] = {}
+    if reading.temperature is not None:
+        fields["temperature"] = float(reading.temperature)
+    if reading.humidity is not None:
+        fields["humidity"] = float(reading.humidity)
+    if reading.temperature is not None and reading.humidity is not None:
+        try:
+            abs_h = calc_abs_humidity_gm3_okada(
+                float(reading.temperature),
+                float(reading.humidity),
+                pres_hpa=1013.25,
+                f_model=ef_model,
+            )
+        except Exception:
+            abs_h = None
         if abs_h is not None:
-            fields["abs_humidity"] = float(abs_h)        # g/m^3
-        if co2 is not None:
-            try:
-                fields["co2"] = int(round(float(co2)))   # ppm
-            except Exception:
-                pass
-        if batt is not None:
-            try:
-                fields["battery"] = int(batt)            # %
-            except Exception:
-                pass
+            fields["abs_humidity"] = float(abs_h)
+    if reading.co2 is not None:
+        fields["co2"] = int(reading.co2)
+    if reading.battery is not None:
+        fields["battery"] = int(reading.battery)
+    if not fields:
+        return None
 
-        if not fields:
-            continue
+    tags = {
+        "location": f"{location_prefix}{reading.name}",
+        "device_id": reading.device_id or reading.name,
+        "type": reading.device_type,
+    }
+    return _lp("climate", tags, fields, ts_ms)
 
-        lines.append(_lp("climate", tags, fields, ts_ms))
 
+def _collect_once(
+    location_prefix: str,
+    mode: str,
+    timeout_s: float,
+    ef_model: str,
+    token: Optional[str] = None,
+    secret: Optional[str] = None,
+    ble_targets: Optional[List[BleTarget]] = None,
+    ble_scan_timeout_s: float = 5.0,
+) -> list[str]:
+    ts_ms = int(time.time() * 1000)
+    readings = _gather_readings(
+        mode=mode,
+        token=token,
+        secret=secret,
+        timeout_s=timeout_s,
+        ble_targets=ble_targets,
+        ble_scan_timeout_s=ble_scan_timeout_s,
+    )
+    lines: List[str] = []
+    for reading in readings:
+        line = _reading_to_line(reading, location_prefix, ef_model, ts_ms)
+        if line:
+            lines.append(line)
     return lines
 
 # ---------------------------------------------------------------------
@@ -306,6 +390,7 @@ def _collect_once(
 
 @app.command(help="SwitchBot の温湿度/CO2 を取得し、InfluxDB に1回だけ書き込みます。")
 def push(
+    mode: Annotated[Optional[str], typer.Option("--mode", help="データ取得モード: api|ble")] = None,
     use_v3_native: Annotated[bool, typer.Option("--use-v3-native", help="InfluxDB v3 ネイティブAPI (/api/v3/write_lp) を使用")] = False,
     bucket_or_db: Annotated[Optional[str], typer.Option("--bucket-or-db", help="v2: bucket名 / v3: DB名。未指定ならENVを使用")] = None,
     influx_url: Annotated[Optional[str], typer.Option("--influx-url", help="Influx URL（例: http://localhost:8086）")] = None,
@@ -313,12 +398,13 @@ def push(
     location_prefix: Annotated[Optional[str], typer.Option("--location-prefix", help="location タグの接頭辞")] = None,
     ef_model: Annotated[str, typer.Option("--ef-model", help="増強係数モデル: none|buck|its90")] = "none",
     timeout_s: Annotated[Optional[float], typer.Option("--timeout-s", help="HTTP タイムアウト（秒）")] = None,
+    ble_device: Annotated[Optional[List[str]], typer.Option("--ble-device", help="BLE デバイス指定 (MAC[@type][=alias])", metavar="SPEC")] = None,
+    ble_scan_timeout: Annotated[Optional[float], typer.Option("--ble-scan-timeout", help="BLE スキャンタイムアウト（秒）")] = None,
 ):
     env = _load_env()
-    sb_token  = env["SWITCHBOT_TOKEN"]
-    sb_secret = env["SWITCHBOT_SECRET"]
-    _require(sb_token, "SWITCHBOT_TOKEN")
-    _require(sb_secret, "SWITCHBOT_SECRET")
+    active_mode = (mode or env["SWITCHBOT_MODE"]).lower()
+    if active_mode not in SUPPORTED_MODES:
+        raise typer.BadParameter(f"--mode は {', '.join(sorted(SUPPORTED_MODES))} から選択してください")
 
     influx_url   = influx_url or env["INFLUX_URL"]
     bucket_or_db = bucket_or_db or env["INFLUX_BUCKET_OR_DB"]
@@ -332,7 +418,34 @@ def push(
     _require(bucket_or_db, "INFLUX_BUCKET_OR_DB")
     _require(token_influx, "INFLUX_TOKEN")
 
-    lines = _collect_once(location_prefix, sb_token, sb_secret, timeout_s, ef_model=ef_model)
+    ble_specs = list(ble_device or [])
+    if not ble_specs and env["SWITCHBOT_BLE_DEVICES"]:
+        ble_specs = [s.strip() for s in env["SWITCHBOT_BLE_DEVICES"].split(",") if s.strip()]
+    try:
+        ble_targets = parse_ble_targets(ble_specs)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    ble_scan_timeout = ble_scan_timeout or env["SWITCHBOT_BLE_SCAN_TIMEOUT"]
+
+    sb_token = env["SWITCHBOT_TOKEN"]
+    sb_secret = env["SWITCHBOT_SECRET"]
+    if active_mode == "api":
+        _require(sb_token, "SWITCHBOT_TOKEN")
+        _require(sb_secret, "SWITCHBOT_SECRET")
+    else:
+        sb_token = None
+        sb_secret = None
+
+    lines = _collect_once(
+        location_prefix=location_prefix,
+        mode=active_mode,
+        timeout_s=timeout_s,
+        ef_model=ef_model,
+        token=sb_token,
+        secret=sb_secret,
+        ble_targets=ble_targets,
+        ble_scan_timeout_s=ble_scan_timeout,
+    )
     if not lines:
         typer.echo("no datapoints")
         raise typer.Exit(code=0)
@@ -360,9 +473,59 @@ def devices(
         typer.echo(f"- {d.get('deviceName') or d.get('deviceId')} "
                    f"(type={d.get('deviceType')}, id={d.get('deviceId')})")
 
+@app.command(name="scan-ble", help="BLE スキャンで周囲の SwitchBot デバイス MAC アドレスを取得します。")
+def scan_ble(
+    timeout_s: Annotated[Optional[float], typer.Option("--timeout-s", help="BLE スキャンタイムアウト（秒）")] = None,
+):
+    env = _load_env()
+    scan_timeout = timeout_s or env["SWITCHBOT_BLE_SCAN_TIMEOUT"]
+    try:
+        devices = scan_switchbot_devices(scan_timeout)
+    except RuntimeError as exc:
+        typer.echo(f"error: {exc}")
+        raise typer.Exit(code=1)
+
+    if not devices:
+        typer.echo("no BLE devices found")
+        raise typer.Exit(code=0)
+
+    for info in devices:
+        name = info.get("name") or "-"
+        source = "switchbot" if info.get("is_switchbot") else "other"
+        line = f"{info.get('mac')} source={source} name={name}"
+        dtype = info.get("device_type")
+        if dtype:
+            line += f" type={dtype}"
+        elif info.get("is_switchbot"):
+            line += " type=unknown"
+        model = info.get("device_model")
+        if model:
+            line += f" model={model}"
+        code = info.get("device_code")
+        if code is not None:
+            line += f" code=0x{code:02X}"
+        rssi = info.get("rssi")
+        if rssi is not None:
+            line += f" rssi={rssi}"
+        reading: Optional[SwitchBotReading] = info.get("reading")
+        metrics: list[str] = []
+        if reading:
+            if reading.temperature is not None:
+                metrics.append(f"temp={reading.temperature:.1f}C")
+            if reading.humidity is not None:
+                metrics.append(f"hum={reading.humidity:.0f}%")
+            if reading.co2 is not None:
+                metrics.append(f"co2={reading.co2}ppm")
+            if reading.battery is not None:
+                metrics.append(f"bat={reading.battery}%")
+        if metrics:
+            line += " (" + ", ".join(metrics) + ")"
+        typer.echo(line)
+
 @app.command(help="指定間隔で push を繰り返します（cron 代替）。")
 def run(
     interval: Annotated[int, typer.Option("--interval", "-i", help="実行間隔（秒）", min=30)] = 300,
+    mode: Annotated[Optional[str], typer.Option("--mode", help="データ取得モード: api|ble")] = None,
     use_v3_native: Annotated[bool, typer.Option("--use-v3-native")] = False,
     bucket_or_db: Annotated[Optional[str], typer.Option("--bucket-or-db")] = None,
     influx_url: Annotated[Optional[str], typer.Option("--influx-url")] = None,
@@ -370,12 +533,13 @@ def run(
     location_prefix: Annotated[Optional[str], typer.Option("--location-prefix")] = None,
     ef_model: Annotated[str, typer.Option("--ef-model", help="増強係数モデル: none|buck|its90")] = "none",
     timeout_s: Annotated[Optional[float], typer.Option("--timeout-s")] = None,
+    ble_device: Annotated[Optional[List[str]], typer.Option("--ble-device", help="BLE デバイス指定 (MAC[@type][=alias])", metavar="SPEC")] = None,
+    ble_scan_timeout: Annotated[Optional[float], typer.Option("--ble-scan-timeout", help="BLE スキャンタイムアウト（秒）")] = None,
 ):
     env = _load_env()
-    sb_token  = env["SWITCHBOT_TOKEN"]
-    sb_secret = env["SWITCHBOT_SECRET"]
-    _require(sb_token, "SWITCHBOT_TOKEN")
-    _require(sb_secret, "SWITCHBOT_SECRET")
+    active_mode = (mode or env["SWITCHBOT_MODE"]).lower()
+    if active_mode not in SUPPORTED_MODES:
+        raise typer.BadParameter(f"--mode は {', '.join(sorted(SUPPORTED_MODES))} から選択してください")
 
     influx_url   = influx_url or env["INFLUX_URL"]
     bucket_or_db = bucket_or_db or env["INFLUX_BUCKET_OR_DB"]
@@ -389,11 +553,38 @@ def run(
     _require(bucket_or_db, "INFLUX_BUCKET_OR_DB")
     _require(token_influx, "INFLUX_TOKEN")
 
+    ble_specs = list(ble_device or [])
+    if not ble_specs and env["SWITCHBOT_BLE_DEVICES"]:
+        ble_specs = [s.strip() for s in env["SWITCHBOT_BLE_DEVICES"].split(",") if s.strip()]
+    try:
+        ble_targets = parse_ble_targets(ble_specs)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    ble_scan_timeout = ble_scan_timeout or env["SWITCHBOT_BLE_SCAN_TIMEOUT"]
+
+    sb_token = env["SWITCHBOT_TOKEN"]
+    sb_secret = env["SWITCHBOT_SECRET"]
+    if active_mode == "api":
+        _require(sb_token, "SWITCHBOT_TOKEN")
+        _require(sb_secret, "SWITCHBOT_SECRET")
+    else:
+        sb_token = None
+        sb_secret = None
+
     typer.echo(f"Starting loop: every {interval}s (Ctrl+C to stop)")
     try:
         while True:
             try:
-                lines = _collect_once(location_prefix, sb_token, sb_secret, timeout_s, ef_model=ef_model)
+                lines = _collect_once(
+                    location_prefix=location_prefix,
+                    mode=active_mode,
+                    timeout_s=timeout_s,
+                    ef_model=ef_model,
+                    token=sb_token,
+                    secret=sb_secret,
+                    ble_targets=ble_targets,
+                    ble_scan_timeout_s=ble_scan_timeout,
+                )
                 if lines:
                     _write_influx(lines, influx_url, bucket_or_db, token_influx, timeout_s, use_v3_native)
                     typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] wrote {len(lines)} points")
@@ -407,4 +598,3 @@ def run(
 
 if __name__ == "__main__":
     app()
-
