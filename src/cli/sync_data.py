@@ -36,7 +36,7 @@ import math
 import os
 import time
 import uuid
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 import requests
 import typer
@@ -47,6 +47,7 @@ from .switchbot_ble import (
     BleTarget,
     SwitchBotReading,
     collect_ble_readings,
+    parse_ble_target,
     parse_ble_targets,
     scan_switchbot_devices,
 )
@@ -384,6 +385,28 @@ def _collect_once(
             lines.append(line)
     return lines
 
+
+def _guess_ble_type(device_type: str) -> str:
+    dt = (device_type or "").lower()
+    if "co2" in dt or "air quality" in dt:
+        return "co2"
+    return "meter"
+
+
+def _format_reading(reading: Optional[SwitchBotReading]) -> str:
+    if not reading:
+        return "n/a"
+    parts: list[str] = []
+    if reading.temperature is not None:
+        parts.append(f"temp={reading.temperature:.1f}C")
+    if reading.humidity is not None:
+        parts.append(f"hum={reading.humidity:.0f}%")
+    if reading.co2 is not None:
+        parts.append(f"co2={reading.co2}ppm")
+    if reading.battery is not None:
+        parts.append(f"bat={reading.battery}%")
+    return ", ".join(parts) if parts else "no data"
+
 # ---------------------------------------------------------------------
 # Typer コマンド
 # ---------------------------------------------------------------------
@@ -470,8 +493,17 @@ def devices(
         raise typer.Exit()
 
     for d in devs:
-        typer.echo(f"- {d.get('deviceName') or d.get('deviceId')} "
-                   f"(type={d.get('deviceType')}, id={d.get('deviceId')})")
+        name = d.get("deviceName") or d.get("deviceId")
+        dtype = d.get("deviceType")
+        device_id = d.get("deviceId")
+        typer.echo(f"- {name} (type={dtype}, id={device_id})")
+        try:
+            status = _get_status(device_id, sb_token, sb_secret, timeout_s) or {}
+        except Exception as exc:
+            typer.echo(f"    status error: {exc}")
+            continue
+        for key in sorted(status.keys()):
+            typer.echo(f"    {key}: {status[key]}")
 
 @app.command(name="scan-ble", help="BLE スキャンで周囲の SwitchBot デバイス MAC アドレスを取得します。")
 def scan_ble(
@@ -521,6 +553,85 @@ def scan_ble(
         if metrics:
             line += " (" + ", ".join(metrics) + ")"
         typer.echo(line)
+
+
+@app.command(help="同一デバイスの Cloud API と BLE 値を比較表示します。")
+def compare(
+    pair: Annotated[List[str], typer.Option("--pair", "-p", help="deviceId=BLE_MAC[@type]")],
+    timeout_s: Annotated[Optional[float], typer.Option("--timeout-s", help="API タイムアウト（秒）")] = None,
+    ble_scan_timeout: Annotated[Optional[float], typer.Option("--ble-scan-timeout", help="BLE スキャンタイムアウト（秒）")] = None,
+):
+    if not pair:
+        raise typer.BadParameter("--pair を少なくとも1件指定してください")
+
+    env = _load_env()
+    sb_token = env["SWITCHBOT_TOKEN"]
+    sb_secret = env["SWITCHBOT_SECRET"]
+    _require(sb_token, "SWITCHBOT_TOKEN")
+    _require(sb_secret, "SWITCHBOT_SECRET")
+
+    api_timeout = timeout_s or env["REQUEST_TIMEOUT_S"]
+    ble_timeout = ble_scan_timeout or env["SWITCHBOT_BLE_SCAN_TIMEOUT"]
+
+    devices = _get_devices(sb_token, sb_secret, api_timeout)
+    device_map = {d.get("deviceId"): d for d in devices}
+
+    targets: list[BleTarget] = []
+    compare_entries: list[tuple[str, dict[str, Any], BleTarget]] = []
+
+    for item in pair:
+        if "=" not in item:
+            raise typer.BadParameter(f"--pair 形式エラー: {item}")
+        dev_id, ble_spec = item.split("=", 1)
+        dev_id = dev_id.strip()
+        ble_spec = ble_spec.strip()
+        if not dev_id or not ble_spec:
+            raise typer.BadParameter(f"--pair 形式エラー: {item}")
+        info = device_map.get(dev_id)
+        if not info:
+            raise typer.BadParameter(f"deviceId {dev_id} は API デバイス一覧に存在しません")
+
+        if "@" not in ble_spec:
+            inferred = _guess_ble_type(info.get("deviceType", ""))
+            ble_spec = f"{ble_spec}@{inferred}"
+
+        spec_with_alias = f"{ble_spec}={dev_id}"
+        try:
+            target = parse_ble_target(spec_with_alias)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        targets.append(target)
+        compare_entries.append((dev_id, info, target))
+
+    api_readings = _collect_api_readings(sb_token, sb_secret, api_timeout)
+    api_map = {r.device_id: r for r in api_readings}
+
+    ble_readings = collect_ble_readings(targets, ble_timeout)
+    ble_map = {r.name: r for r in ble_readings}  # alias に deviceId を入れている
+
+    for dev_id, info, target in compare_entries:
+        name = info.get("deviceName") or dev_id
+        typer.echo(f"{dev_id} ({name}) [{target.device_type}]")
+
+        api_read = api_map.get(dev_id)
+        typer.echo(f"  API: {_format_reading(api_read)}")
+
+        ble_read = ble_map.get(dev_id)
+        typer.echo(f"  BLE: {_format_reading(ble_read)}")
+
+        diff_parts: list[str] = []
+        if api_read and ble_read:
+            if api_read.temperature is not None and ble_read.temperature is not None:
+                diff_parts.append(f"Δtemp={(ble_read.temperature - api_read.temperature):+.2f}")
+            if api_read.humidity is not None and ble_read.humidity is not None:
+                diff_parts.append(f"Δhum={(ble_read.humidity - api_read.humidity):+.1f}")
+            if api_read.co2 is not None and ble_read.co2 is not None:
+                diff_parts.append(f"Δco2={(ble_read.co2 - api_read.co2):+d}")
+            if api_read.battery is not None and ble_read.battery is not None:
+                diff_parts.append(f"Δbat={(ble_read.battery - api_read.battery):+d}")
+        if diff_parts:
+            typer.echo(f"  Δ  : {', '.join(diff_parts)}")
+        typer.echo("")
 
 @app.command(help="指定間隔で push を繰り返します（cron 代替）。")
 def run(
