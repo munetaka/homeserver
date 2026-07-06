@@ -7,6 +7,34 @@ from cli import sync_data
 from cli.switchbot_ble import SwitchBotReading
 
 
+class AbsHumidityTest(unittest.TestCase):
+    def test_es_okada_at_zero_celsius(self):
+        # 0℃の飽和水蒸気圧は約 6.11 hPa
+        self.assertAlmostEqual(sync_data.es_okada_water_hpa(0.0), 6.107, delta=0.01)
+
+    def test_es_okada_at_room_temperature(self):
+        # 26.1℃の飽和水蒸気圧は約 33.8 hPa
+        self.assertAlmostEqual(sync_data.es_okada_water_hpa(26.1), 33.80, delta=0.1)
+
+    def test_abs_humidity_reported_case(self):
+        # 実測で 142.2 g/m^3 が記録されていたケース。正しくは約 14.5 g/m^3
+        ah = sync_data.calc_abs_humidity_gm3_okada(26.1, 59.0, f_model="buck")
+        self.assertAlmostEqual(ah, 14.5, delta=0.1)
+
+    def test_abs_humidity_no_enhancement(self):
+        # 25℃/50%RH の絶対湿度は約 11.5 g/m^3
+        ah = sync_data.calc_abs_humidity_gm3_okada(25.0, 50.0, f_model="none")
+        self.assertAlmostEqual(ah, 11.5, delta=0.2)
+
+    def test_abs_humidity_physically_plausible_range(self):
+        # 室内域では 0〜50 g/m^3 に収まるはず（10倍バグの再発防止）
+        for temp in (0.0, 10.0, 20.0, 30.0, 40.0):
+            for rh in (10.0, 50.0, 90.0):
+                ah = sync_data.calc_abs_humidity_gm3_okada(temp, rh)
+                self.assertGreater(ah, 0.0)
+                self.assertLess(ah, 60.0, msg=f"temp={temp}, rh={rh}, ah={ah}")
+
+
 class SyncDataHelpersTest(unittest.TestCase):
     def test_reading_to_line_includes_abs_and_battery(self):
         reading = SwitchBotReading(

@@ -163,8 +163,9 @@ def es_okada_water_hpa(temp_c: float) -> float:
     T = float(temp_c)
     a0 = _OKADA_WATER_COEFF["a0"]; a1 = _OKADA_WATER_COEFF["a1"]
     a2 = _OKADA_WATER_COEFF["a2"]; a3 = _OKADA_WATER_COEFF["a3"]; a4 = _OKADA_WATER_COEFF["a4"]
-    log10_es = a0 + a1*T + a2*T*T + a3*T*T*T + a4*T*T*T*T
-    return 10.0 ** log10_es
+    # 係数は自然対数 ln(es[hPa]) 用（0℃で es=6.107 hPa となる）
+    ln_es = a0 + a1*T + a2*T*T + a3*T*T*T + a4*T*T*T*T
+    return math.exp(ln_es)
 
 def es_goff_gratch_ice_hpa(temp_c: float) -> float:
     """Goff–Gratch（氷，T<0℃）の飽和水蒸気圧[hPa]"""
@@ -213,8 +214,8 @@ def calc_abs_humidity_gm3_okada(
 
     f = enhancement_factor(temp_c, pres_hpa, f_model)
     e_hpa = RH * es_hpa * f
-    e_kpa = e_hpa / 10.0
-    return 216.7 * e_kpa / T_K
+    # AH[g/m^3] = 216.7 * e[hPa] / T[K]
+    return 216.7 * e_hpa / T_K
 
 # ---------------------------------------------------------------------
 # InfluxDB（Line Protocol）
