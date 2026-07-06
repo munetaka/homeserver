@@ -62,6 +62,21 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         self.assertEqual(reading.device_id, "AA:BB:CC:DD:EE:FF")
         self.assertEqual(reading.name, "Living")
 
+    def test_decode_meter_payload_fahrenheit_display_stays_celsius(self):
+        # Same layout as test_decode_meter_payload but with bit 7 of the
+        # humidity byte set (device display set to Fahrenheit). The encoded
+        # value is Celsius regardless of the display unit.
+        manufacturer = bytes.fromhex("f2b202064a8ba9020897ba00")
+        adv = _FakeAdvertisement(
+            service_data={"0000fd3d-0000-1000-8000-00805F9B34FB": bytes.fromhex("5400e4")},
+            manufacturer_data={0x0969: manufacturer},
+        )
+        target = BleTarget(mac="AA:BB:CC:DD:EE:FF", device_type="meter", alias="WIC")
+        reading = decode_switchbot_advertisement(target, adv)
+        self.assertIsNotNone(reading)
+        self.assertAlmostEqual(reading.temperature, 23.8)
+        self.assertAlmostEqual(reading.humidity, 58.0)
+
     def test_decode_co2_payload(self):
         payload = bytes.fromhex("350064")
         manufacturer = bytes.fromhex("b0e9fe54488ffde403983a0026035d00")

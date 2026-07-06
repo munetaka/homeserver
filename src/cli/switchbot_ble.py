@@ -132,10 +132,6 @@ def parse_ble_targets(values: Iterable[str]) -> list[BleTarget]:
     return targets
 
 
-def _fahrenheit_to_celsius(temp_f: float) -> float:
-    return (temp_f - 32.0) / 1.8
-
-
 def _meter_data_from_manufacturer(manufacturer_payload: Optional[bytes]) -> Optional[bytes]:
     if not manufacturer_payload or len(manufacturer_payload) < 12:
         return None
@@ -160,9 +156,8 @@ def _decode_meter_bytes(data: bytes) -> dict[str, float | int]:
     if not is_positive:
         temperature = -temperature
 
-    if humidity_byte & 0x80:
-        temperature = _fahrenheit_to_celsius(temperature)
-
+    # Bit 7 of the humidity byte only reflects the device's display unit
+    # (Celsius/Fahrenheit); the encoded value is always Celsius.
     humidity = humidity_byte & 0x7F
 
     result["temperature"] = float(temperature)
