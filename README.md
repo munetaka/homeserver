@@ -4,7 +4,7 @@ Typer CLI for collecting SwitchBot environmental sensor metrics via Cloud API or
 
 ## Features
 - Works with SwitchBot Cloud API v1.1 and direct BLE advertisements to avoid API rate limits.
-- Decodes Meter, Meter Plus, and CO2 meter payloads (temperature, humidity, CO2, battery).
+- Decodes Meter, Meter Plus, CO2 meter, and Hub 2 payloads (temperature, humidity, CO2, battery).
 - Supports single push or continuous loop writes in InfluxDB line protocol (v2 or v3).
 - Provides discovery utilities: list devices from the API, scan BLE radios, and compare API versus BLE readings.
 
@@ -52,7 +52,7 @@ SWITCHBOT_BLE_SCAN_TIMEOUT=15
 | `SWITCHBOT_BLE_DEVICES` | optional | Comma-separated `MAC[@type][=alias]` specs used by `push` and `run`. |
 | `SWITCHBOT_BLE_SCAN_TIMEOUT` | optional | BLE scan timeout in seconds (default `5`). |
 
-`@type` accepts values such as `meter`, `co2`, or the raw code label (`code_0x35`) if the device is unknown.
+`@type` accepts values such as `meter`, `co2`, `hub2`, or the raw code label (`code_0x35`) if the device is unknown.
 
 ## CLI usage
 All commands are exposed by the Typer application registered as the `sb` console script. Run them via uv:
@@ -175,7 +175,6 @@ Raspberry Pi OS 上で 60 秒ごとに `sb run` を常駐実行し、計測結�
    sudo systemctl status switchbot.service
    journalctl -u switchbot.service -f
    ```
-
 ユニットは 60 秒間隔 (`--interval 60`) で BLE スキャンを実行し、指定した InfluxDB に書き込みます。必要に応じてコマンドライン引数や環境変数を調整してください。
 
 ## Testing
@@ -186,6 +185,6 @@ uv run python -m unittest discover -s tests -t .
 ```
 
 ## Notes
-- BLE decoding currently covers Meter, Meter Plus, and CO2 meters (including outdoor versions). Unrecognized payloads fall back to `type=unknown` with a `code_0x..` label.
+- BLE decoding currently covers Meter, Meter Plus, CO2 meters (including outdoor versions), and Hub 2 (temperature/humidity only; no battery since it is mains powered). Unrecognized payloads fall back to `type=unknown` with a `code_0x..` label.
 - For reliable BLE results, increase `--ble-scan-timeout` or `SWITCHBOT_BLE_SCAN_TIMEOUT`, especially for devices with long advertising intervals.
 - Ensure the SwitchBot REST token and secret are present even when primarily using BLE; the CLI uses them for commands that interact with the Cloud API.

@@ -77,6 +77,65 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         self.assertAlmostEqual(reading.temperature, 23.8)
         self.assertAlmostEqual(reading.humidity, 58.0)
 
+    def test_decode_hub2_payload(self):
+        # Real advertisement captured from a Hub 2 (MAC D3:27:F3:64:6B:34)
+        # on 2026-07-06: temperature 25.9 C, humidity 59 %. Bytes 0-5 of the
+        # manufacturer data are the MAC, byte 11 is a sequence counter, and
+        # bytes 13-15 carry the meter-style temperature/humidity block.
+        payload = bytes.fromhex("7600")
+        manufacturer = bytes.fromhex("d327f3646b3400ff6a4b93250509993b00")
+        adv = _FakeAdvertisement(
+            service_data={"0000fd3d-0000-1000-8000-00805f9b34fb": payload},
+            manufacturer_data={0x0969: manufacturer},
+        )
+        target = BleTarget(mac="D3:27:F3:64:6B:34", device_type="hub2", alias="Utility")
+        reading = decode_switchbot_advertisement(target, adv)
+        self.assertIsNotNone(reading)
+        self.assertAlmostEqual(reading.temperature, 25.9)
+        self.assertAlmostEqual(reading.humidity, 59.0)
+        self.assertIsNone(reading.co2)
+        # Hub 2 is mains powered and does not report battery.
+        self.assertIsNone(reading.battery)
+        self.assertEqual(reading.device_id, "D3:27:F3:64:6B:34")
+        self.assertEqual(reading.name, "Utility")
+
+    def test_decode_hub2_short_manufacturer_data_has_no_values(self):
+        adv = _FakeAdvertisement(
+            service_data={"0000fd3d-0000-1000-8000-00805f9b34fb": bytes.fromhex("7600")},
+            manufacturer_data={0x0969: bytes.fromhex("d327f3646b3400ff6a4b93")},
+        )
+        target = BleTarget(mac="D3:27:F3:64:6B:34", device_type="hub2", alias="Utility")
+        reading = decode_switchbot_advertisement(target, adv)
+        self.assertIsNotNone(reading)
+        self.assertIsNone(reading.temperature)
+        self.assertIsNone(reading.humidity)
+
+    def test_parse_target_hub2_type(self):
+        target = parse_ble_target("D3:27:F3:64:6B:34@hub2=Utility")
+        self.assertEqual(target.device_type, "hub2")
+        self.assertEqual(target.alias, "Utility")
+
+    def test_scan_switchbot_devices_hub2(self):
+        payload = bytes.fromhex("7600")
+        manufacturer_payload = bytes.fromhex("d327f3646b3400ff6a4b93250509993b00")
+        adv = _FakeAdvertisement(
+            service_data={"0000fd3d-0000-1000-8000-00805f9b34fb": payload},
+            manufacturer_data={0x0969: manufacturer_payload},
+            rssi=-79,
+        )
+        device = _FakeDevice(address="D3:27:F3:64:6B:34", name="Hub 2")
+
+        with mock.patch("cli.switchbot_ble._run_coroutine", return_value=[(device, adv)]):
+            devices = scan_switchbot_devices(3.0)
+
+        info = devices[0]
+        self.assertTrue(info["is_switchbot"])
+        self.assertEqual(info["device_type"], "hub2")
+        self.assertEqual(info["device_model"], "hub2")
+        self.assertEqual(info["device_code"], 0x76)
+        self.assertAlmostEqual(info["reading"].temperature, 25.9)
+        self.assertAlmostEqual(info["reading"].humidity, 59.0)
+
     def test_decode_co2_payload(self):
         payload = bytes.fromhex("350064")
         manufacturer = bytes.fromhex("b0e9fe54488ffde403983a0026035d00")

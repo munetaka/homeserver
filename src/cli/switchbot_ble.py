@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Coroutine, Iterable, Optional, TypeVar
 
 # Supported BLE sensor types.
-SUPPORTED_DEVICE_TYPES = {"meter", "co2"}
+SUPPORTED_DEVICE_TYPES = {"meter", "co2", "hub2"}
 DEFAULT_DEVICE_TYPE = "meter"
 
 SWITCHBOT_SERVICE_UUID_FRAGMENT = "FD3D"
@@ -30,6 +30,7 @@ DEVICE_CODE_MAP: dict[int, tuple[str, Optional[str]]] = {
     0x77: ("meter_outdoor", "meter"),
     0x35: ("co2_meter", "co2"),
     0x79: ("air_quality_monitor", "co2"),
+    0x76: ("hub2", "hub2"),
 }
 
 _MAC_RE = re.compile(r"^[0-9A-F]{2}(:[0-9A-F]{2}){5}$")
@@ -196,6 +197,24 @@ def _parse_co2_payload(
     return result
 
 
+def _parse_hub2_payload(
+    payload: bytes,
+    manufacturer_payload: Optional[bytes],
+) -> dict[str, float | int]:
+    """
+    Hub 2 encodes temperature/humidity in manufacturer data bytes 13-15 using
+    the same 3-byte scheme as the Meter series (offsets differ from Meter,
+    which uses bytes 8-10). The device is mains powered and does not report
+    battery, and the service data payload carries no sensor values.
+    """
+    result: dict[str, float | int] = {}
+    if not manufacturer_payload or len(manufacturer_payload) < 16:
+        return result
+    data = bytes([0, 0]) + manufacturer_payload[13:16] + bytes([0])
+    result.update(_decode_meter_bytes(data))
+    return result
+
+
 def _parse_switchbot_service_payload(
     payload: bytes,
     manufacturer_payload: Optional[bytes],
@@ -211,6 +230,8 @@ def _parse_switchbot_service_payload(
         values = _parse_meter_payload(payload, manufacturer_payload)
     elif category == "co2":
         values = _parse_co2_payload(payload, manufacturer_payload)
+    elif category == "hub2":
+        values = _parse_hub2_payload(payload, manufacturer_payload)
 
     return device_code, model, category, values
 
