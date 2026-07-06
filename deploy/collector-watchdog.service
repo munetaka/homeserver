@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart bluetooth/collector when sensor data goes stale
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/collector-watchdog.sh
