@@ -1,0 +1,14 @@
+device_name, device_type, device_id, ble_mac
+1F-書斎電気, Color Bulb, 94A99076CC92, 94:a9:90:76:cc:92
+1F-寝室, MeterPro(CO2), B0E9FE54488F, b0:e9:fe:54:48:8f
+基礎-寝室, WoIOSensor, D03534386E41, d0:35:34:38:6e:41
+1F-ユーティリティ, Hub 2, D327F3646B34, d3:27:f3:64:6b:34
+1F-トイレ, WoIOSensor, F2B202064A8B, f2:b2:02:06:4a:8b
+2F-トイレ, WoIOSensor, F2B202065A85, f2:b2:02:06:5a:85
+屋外-玄関, WoIOSensor, F2B202465520, f2:b2:02:46:55:20
+2F-北側居室, WoIOSensor, F2B202C66555, f2:b2:02:c6:65:55
+2F-リビング, WoIOSensor, F2B20406144C, f2:b2:04:06:14:4c
+1F-書斎, WoIOSensor, F2B20406389A, f2:b2:04:06:38:9a
+1F-WIC, WoIOSensor, F2B204866B62, f2:b2:04:86:6b:62
+1F-玄関, WoIOSensor, F2B204C66261, f2:b2:04:c6:62:61
+屋外カメラ 3MP iv, None, ebd62e8b1e7ed86436jxiv, cb:78:01:f1:69:8b
