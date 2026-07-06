@@ -77,6 +77,11 @@ _OKADA_WATER_COEFF = {
 
 SUPPORTED_MODES = {"api", "ble"}
 
+# run ループがこの回数連続で失敗したら異常終了する。
+# systemd 側の Restart=on-failure に再起動させ、BLE/D-Bus 接続の
+# 壊れたプロセスがエラーを吐き続けたまま生き残るのを防ぐ。
+MAX_CONSECUTIVE_ERRORS = 5
+
 # ---------------------------------------------------------------------
 # 共通ユーティリティ
 # ---------------------------------------------------------------------
@@ -684,6 +689,7 @@ def run(
         sb_secret = None
 
     typer.echo(f"Starting loop: every {interval}s (Ctrl+C to stop)")
+    consecutive_errors = 0
     try:
         while True:
             try:
@@ -702,8 +708,15 @@ def run(
                     typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] wrote {len(lines)} points")
                 else:
                     typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] no datapoints")
+                consecutive_errors = 0
             except Exception as e:
+                consecutive_errors += 1
                 typer.echo(f"error: {e}")
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                    typer.echo(
+                        f"{consecutive_errors} consecutive errors; exiting so systemd can restart the service"
+                    )
+                    raise typer.Exit(code=1)
             time.sleep(interval)
     except KeyboardInterrupt:
         typer.echo("stopped")

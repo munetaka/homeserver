@@ -161,5 +161,59 @@ class SyncDataCliTest(unittest.TestCase):
         self.assertIn("humidity: 40", result.stdout)
 
 
+class RunLoopSelfExitTest(unittest.TestCase):
+    """BLE/D-Bus が壊れたままエラーループし続けた障害 (2026-07-06) の再発防止。"""
+
+    BLE_ENV = {
+        "SWITCHBOT_TOKEN": None,
+        "SWITCHBOT_SECRET": None,
+        "INFLUX_URL": "http://localhost:8428",
+        "INFLUX_BUCKET_OR_DB": "db",
+        "INFLUX_TOKEN": "influx-token",
+        "LOCATION_PREFIX": "",
+        "REQUEST_TIMEOUT_S": 10.0,
+        "USE_V3_NATIVE": False,
+        "EF_MODEL": "none",
+        "SWITCHBOT_MODE": "ble",
+        "SWITCHBOT_BLE_DEVICES": "",
+        "SWITCHBOT_BLE_SCAN_TIMEOUT": 5.0,
+    }
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def test_run_exits_nonzero_after_consecutive_errors(self):
+        with patch("cli.sync_data._load_env", return_value=self.BLE_ENV), \
+             patch("cli.sync_data._collect_once", side_effect=RuntimeError("dbus down")), \
+             patch("cli.sync_data.time.sleep"):
+            result = self.runner.invoke(sync_data.app, ["run", "--interval", "60"])
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(
+            result.stdout.count("error: dbus down"),
+            sync_data.MAX_CONSECUTIVE_ERRORS,
+        )
+        self.assertIn("exiting so systemd can restart the service", result.stdout)
+
+    def test_run_error_counter_resets_on_success(self):
+        # 上限直前まで失敗 → 1回成功 → また上限直前まで失敗、では終了しない
+        almost = sync_data.MAX_CONSECUTIVE_ERRORS - 1
+        effects = (
+            [RuntimeError("dbus down")] * almost
+            + [["climate,location=a temperature=1.0"]]
+            + [RuntimeError("dbus down")] * almost
+            + [KeyboardInterrupt()]
+        )
+        with patch("cli.sync_data._load_env", return_value=self.BLE_ENV), \
+             patch("cli.sync_data._collect_once", side_effect=effects), \
+             patch("cli.sync_data._write_influx"), \
+             patch("cli.sync_data.time.sleep"):
+            result = self.runner.invoke(sync_data.app, ["run", "--interval", "60"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("stopped", result.stdout)
+        self.assertNotIn("exiting so systemd can restart the service", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
