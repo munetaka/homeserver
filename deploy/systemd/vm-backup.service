@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup VictoriaMetrics snapshot to pCloud
+After=victoria-metrics.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vm-backup.sh

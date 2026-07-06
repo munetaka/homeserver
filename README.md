@@ -1,12 +1,17 @@
 # homeserver
 
-Typer CLI for collecting SwitchBot environmental sensor metrics via Cloud API or BLE and writing them into InfluxDB.
+Typer CLI for collecting SwitchBot environmental sensor metrics via Cloud API or BLE and writing them into a time-series database over InfluxDB line protocol. The production deployment writes to **VictoriaMetrics** (InfluxDB v2 API compatible); plain InfluxDB v2/v3 also works.
 
 ## Features
 - Works with SwitchBot Cloud API v1.1 and direct BLE advertisements to avoid API rate limits.
 - Decodes Meter, Meter Plus, CO2 meter, and Hub 2 payloads (temperature, humidity, CO2, battery).
-- Supports single push or continuous loop writes in InfluxDB line protocol (v2 or v3).
+- Supports single push or continuous loop writes in InfluxDB line protocol (VictoriaMetrics / InfluxDB v2 / v3).
 - Provides discovery utilities: list devices from the API, scan BLE radios, and compare API versus BLE readings.
+
+## Documentation
+- [docs/runbook.md](docs/runbook.md) — 本番環境(ラズパイ4)の構成・障害対応手順・ハマりどころ集
+- [docs/incidents/](docs/incidents/) — 障害記録(ポストモーテム)
+- [deploy/README.md](deploy/README.md) — systemd ユニット・スクリプト・Grafana 設定の原本と再構築手順
 
 ## Requirements
 - Python 3.13 or later.
@@ -41,9 +46,9 @@ SWITCHBOT_BLE_SCAN_TIMEOUT=15
 | --- | --- | --- |
 | `SWITCHBOT_TOKEN` | Cloud mode | SwitchBot API token (`App -> Profile -> Preferences`). |
 | `SWITCHBOT_SECRET` | Cloud mode | SwitchBot API secret. |
-| `INFLUX_URL` | yes | Base URL for InfluxDB (`http://host:port`). |
-| `INFLUX_BUCKET_OR_DB` | yes | InfluxDB bucket (v2) or database (v3). |
-| `INFLUX_TOKEN` | yes | InfluxDB API token. |
+| `INFLUX_URL` | yes | Base URL of the line-protocol endpoint (VictoriaMetrics: `http://host:8428`, InfluxDB: `http://host:8086`). |
+| `INFLUX_BUCKET_OR_DB` | yes | InfluxDB bucket (v2) or database (v3). Ignored by VictoriaMetrics (still must be set). |
+| `INFLUX_TOKEN` | yes | InfluxDB API token. Ignored by VictoriaMetrics (still must be set). |
 | `LOCATION_PREFIX` | optional | Prepended to the `location` tag written to Influx. |
 | `REQUEST_TIMEOUT_S` | optional | HTTP timeout in seconds (default `10`). |
 | `USE_V3_NATIVE` | optional | `true` to use `/api/v3/write_lp` (default `false`). |
@@ -79,7 +84,7 @@ Continuous loop version of `push`.
 uv run sb run --interval 300 --mode ble --ble-scan-timeout 20
 ```
 
-The loop catches exceptions, logs them to stdout, and continues.
+The loop catches exceptions, logs them to stdout, and continues. After 5 consecutive failures it exits with a non-zero status so that systemd (`Restart=on-failure`) restarts the process with a fresh BLE/D-Bus session.
 
 ### devices
 Lists all devices returned by `GET /devices` and prints every key and value from `GET /devices/{id}/status`.
@@ -110,87 +115,36 @@ uv run sb compare --pair B0E9FE54488F=b0:e9:fe:54:48:8f@co2 --pair F2B202064A8B=
 - Output shows API values, BLE values, and deltas for temperature, humidity, CO2, and battery when both sources reported data.
 
 ## Raspberry Pi サービス運用
-Raspberry Pi OS 上で 60 秒ごとに `sb run` を常駐実行し、計測結果を InfluxDB に書き込む例です。
 
-1. Raspberry Pi に必要パッケージを用意します。
-   ```bash
-   sudo apt update
-   sudo apt install python3 python3-pip bluetooth bluez
-   pipx install uv  # pipx が無ければ `python3 -m pip install --user uv`
-   ```
-2. 本リポジトリをサービスで使うディレクトリに配置し、依存を解決します。
-   ```bash
-   sudo mkdir -p /opt/homeserver
-   sudo chown -R pi:pi /opt/homeserver    # 実行ユーザーに合わせて変更
-   cd /opt/homeserver
-   git clone <このリポジトリ> .
-   uv sync
-   ```
-3. 環境変数ファイルを作成します。
-   ```bash
-   sudo tee /etc/switchbot.env >/dev/null <<'EOF'
-   SWITCHBOT_TOKEN=xxxxxxxxxxxxxxxxxxxx
-   SWITCHBOT_SECRET=yyyyyyyyyyyyyyyyyyyy
-   INFLUX_URL=http://influxdb.local:8086
-   INFLUX_BUCKET_OR_DB=home-sensors
-   INFLUX_TOKEN=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-   LOCATION_PREFIX=home-
-   REQUEST_TIMEOUT_S=10
-   EF_MODEL=none
-   USE_V3_NATIVE=false
-   SWITCHBOT_MODE=ble
-   SWITCHBOT_BLE_DEVICES=B0:E9:FE:54:48:8F@co2=bedroom,F2:B2:02:06:4A:8B@meter=toilet
-   SWITCHBOT_BLE_SCAN_TIMEOUT=20
-   EOF
-   ```
-   `SWITCHBOT_BLE_DEVICES` や `SWITCHBOT_BLE_SCAN_TIMEOUT` は環境に合わせて調整します。
-4. systemd ユニットを `/etc/systemd/system/switchbot.service` に作成します。
-   ```ini
-   [Unit]
-   Description=SwitchBot sensor collector
-   After=network-online.target bluetooth.service
-   Wants=network-online.target bluetooth.service
+本番構成(VictoriaMetrics + Grafana + コレクター + watchdog + pCloud バックアップ)の
+systemd ユニット・スクリプト・Grafana 設定の原本はすべて [deploy/](deploy/) にあり、
+配置先マッピングとゼロからの再構築手順は [deploy/README.md](deploy/README.md) にまとめてあります。
 
-   [Service]
-   Type=simple
-   WorkingDirectory=/opt/homeserver
-   EnvironmentFile=/etc/switchbot.env
-   ExecStart=/usr/bin/env uv run sb run --interval 60 --mode ble --ble-scan-timeout 20
-   Restart=on-failure
-   User=pi
-   Group=pi
+要点だけ:
 
-   [Install]
-   WantedBy=multi-user.target
-   ```
-   - `ExecStart` は `which uv` で確認できるパスに変更しても構いません。
-   - Bluetooth の許可が必要な場合、`User` を `pi` のままなら `sudo usermod -aG bluetooth pi` を追加します。
-5. systemd に読み込ませ、起動します。
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now switchbot.service
-   ```
-6. 動作確認は以下の通りです。
-   ```bash
-   sudo systemctl status switchbot.service
-   journalctl -u switchbot.service -f
-   ```
-7. データ鮮度 watchdog を設定します。BLE/D-Bus が壊れたままプロセスだけ生き残る障害に備え、climate データが 10 分以上更新されていなければ bluetooth と `switchbot.service` を再起動します。ユニット一式は [deploy/](deploy/) にあります。
+1. リポジトリを `/opt/homeserver` に配置して `uv sync`、`.env` を作成
+   (`INFLUX_URL=http://localhost:8428`、`SWITCHBOT_BLE_DEVICES` に全デバイスを列挙)。
+   `.env` は systemd の `EnvironmentFile` ではなく CLI 自身(python-dotenv)が読む。
+   ユニットに存在しない `EnvironmentFile` を書くと起動即失敗するので注意
+   ([docs/incidents/2026-07-05-influxdb-scraper-bloat.md](docs/incidents/2026-07-05-influxdb-scraper-bloat.md) の教訓)。
+2. `deploy/systemd/` のユニットと `deploy/bin/` のスクリプトを配置:
    ```bash
    cd /opt/homeserver
-   sudo install -m 755 deploy/collector-watchdog.sh /usr/local/bin/collector-watchdog.sh
-   sudo install -m 644 deploy/collector-watchdog.service deploy/collector-watchdog.timer /etc/systemd/system/
+   sudo install -m 755 deploy/bin/*.sh /usr/local/bin/
+   sudo install -m 644 deploy/systemd/* /etc/systemd/system/
    sudo systemctl daemon-reload
-   sudo systemctl enable --now collector-watchdog.timer
+   sudo systemctl enable --now victoria-metrics switchbot collector-watchdog.timer vm-backup.timer
    ```
-   動作確認は以下の通りです。
+3. 動作確認:
    ```bash
-   systemctl list-timers collector-watchdog.timer
-   journalctl -u collector-watchdog.service -f
+   journalctl -u switchbot.service -f        # 毎分 "wrote N points" が出る
+   systemctl list-timers                     # watchdog / backup タイマー
    ```
-   スクリプトは VictoriaMetrics が `localhost:8428` で応答すること、および `switchbot.service` が稼働中であることを前提にしています。ポートが異なる場合は `deploy/collector-watchdog.sh` の URL を調整してください。
 
-ユニットは 60 秒間隔 (`--interval 60`) で BLE スキャンを実行し、指定した InfluxDB に書き込みます。必要に応じてコマンドライン引数や環境変数を調整してください。
+watchdog は climate データが 10 分以上更新されない場合に bluetooth と switchbot.service を
+自動再起動します(bluetoothd 側の故障はコレクター再起動だけでは直らないため。
+経緯は [docs/incidents/2026-07-06-bluetoothd-dbus-outage.md](docs/incidents/2026-07-06-bluetoothd-dbus-outage.md))。
+日々の運用・障害対応は [docs/runbook.md](docs/runbook.md) を参照してください。
 
 ## Testing
 Run the unit test suite with:
