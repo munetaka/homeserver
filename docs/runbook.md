@@ -16,7 +16,7 @@
 | 項目 | 値 |
 | --- | --- |
 | ホスト | `raspi4-homeserver.local`(Mac からは ssh エイリアス `homeserver`、ユーザー `homepi`) |
-| タイムゾーン | **Europe/London (BST)** — JST より8時間遅れ。journalctl の時刻に注意 |
+| タイムゾーン | **Asia/Tokyo (JST)**(2026-07-09 に Europe/London から変更) |
 | コレクター | `switchbot.service`: `/opt/homeserver` で `uv run sb run --interval 60 --mode ble --ble-scan-timeout 20` |
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
@@ -83,7 +83,9 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 
 ## Tips(ハマりどころ)
 
-- **Pi の時刻表示は BST**。Grafana(ブラウザ=JST)と journalctl の時刻は8時間ずれる。
+- **Pi の TZ は 2026-07-09 まで Europe/London (BST) だった**。docs/incidents/ 内の時刻表記は
+  当時の BST(JST−8時間)。journalctl は表示時点の TZ に変換するため、古いログを見るときは
+  障害記録の BST 表記と 8 時間ずれて見えることに注意。
 - **非対話 SSH では uv が PATH にない**: `PATH="$HOME/.local/bin:$PATH"` を明示するか
   `/home/homepi/.local/bin/uv` をフルパスで叩く(systemd ユニットはフルパス指定済み)。
 - **BLE の手動スキャンは sudo 必須**(サービスとして動く分は問題ない)。
