@@ -1,0 +1,5 @@
+# managed by homeserver repo (deploy/node-exporter/prometheus-node-exporter.default)
+# 配置先: /etc/default/prometheus-node-exporter
+ARGS="--collector.systemd \
+  --collector.systemd.unit-include=(switchbot|victoria-metrics|grafana-server|bluetooth|collector-watchdog|vm-backup|prometheus-node-exporter)\\.(service|timer) \
+  --collector.textfile.directory=/var/lib/prometheus/node-exporter"

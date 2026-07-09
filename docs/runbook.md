@@ -22,6 +22,7 @@
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
 | 可視化 | Grafana、ダッシュボード uid `home-climate`(プロビジョニング管理 → `deploy/grafana/`) |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
+| サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット → pCloud `homeserver-backup/` |
 
 ## メトリクスのデータモデル
@@ -31,6 +32,10 @@
 - ラベル: `location`(例 `home-1F-寝室`。プレフィックスは `.env` の `LOCATION_PREFIX`)、
   `device_id`(BLE MAC または SwitchBot deviceId)、`type`(meter / co2 / hub2)
 - SwitchBot の Cloud API deviceId は **BLE MAC のコロン抜き**(例 `B0E9FE54488F` = `B0:E9:FE:54:48:8F`)
+- サーバー監視系のメトリクス: `node_*`(node_exporter)、`rpi_*`(スロットリング、textfile)、
+  `collector_watchdog_*`(発火回数・データ鮮度、textfile)、`vm_*`(VictoriaMetrics 自身)。
+  システムメトリクスは約800系列 × 60秒間隔で**年間 1GB 弱**消費する。ディスクが厳しくなったら
+  古い `node_*` だけ delete API で間引く選択肢がある(センサーデータは消さない)
 
 ## センサー一覧(2026-07-06 時点)
 

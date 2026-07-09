@@ -13,9 +13,13 @@
 | `systemd/vm-backup.service` / `.timer` | `/etc/systemd/system/` |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |
+| `systemd/rpi-metrics.service` / `.timer` | `/etc/systemd/system/` |
+| `bin/rpi-metrics.sh` | `/usr/local/bin/rpi-metrics.sh` (要 `chmod +x`) |
+| `node-exporter/prometheus-node-exporter.default` | `/etc/default/prometheus-node-exporter` |
+| `victoria-metrics/scrape.yml` | `/etc/victoria-metrics/scrape.yml` |
 | `grafana/provisioning/datasources/victoriametrics.yaml` | `/etc/grafana/provisioning/datasources/` |
 | `grafana/provisioning/dashboards/home.yaml` | `/etc/grafana/provisioning/dashboards/` |
-| `grafana/dashboards/home-climate-dashboard.json` | `/var/lib/grafana/dashboards/` (owner: grafana) |
+| `grafana/dashboards/*.json` | `/var/lib/grafana/dashboards/` (owner: grafana) |
 
 ## ゼロからの再構築手順(概要)
 
@@ -27,7 +31,9 @@
    ```
 2. 本リポジトリを `/opt/homeserver` に配置し `uv sync`。`.env` を作成(`.env.example` 参照。
    `INFLUX_URL=http://localhost:8428`、`SWITCHBOT_BLE_DEVICES` にセンサー一覧)。
-3. Grafana を apt.grafana.com からインストール。
+3. Grafana を apt.grafana.com から、`prometheus-node-exporter` を Debian 標準リポジトリから
+   インストール(サーバー監視メトリクス用。VictoriaMetrics が `scrape.yml` に従い
+   :9100 と :8428 自身を60秒間隔でスクレイプする)。
 4. 上記マッピング通りにファイルを配置して:
    ```bash
    sudo systemctl daemon-reload

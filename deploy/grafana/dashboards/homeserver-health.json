@@ -1,0 +1,180 @@
+{
+  "uid": "homeserver-health",
+  "title": "ラズパイ稼働状況",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "センサーデータ鮮度",
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 600 }, { "color": "red", "value": 1800 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "collector_watchdog_data_age_seconds", "refId": "A" } ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "ディスク使用率 /",
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "100 - 100 * node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}", "refId": "A" } ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "CPU温度",
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "celsius", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "node_thermal_zone_temp", "refId": "A" } ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "稼働サービス (4が正常)",
+      "gridPos": { "h": 5, "w": 5, "x": 15, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "red", "value": null }, { "color": "green", "value": 4 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "sum(node_systemd_unit_state{name=~\"(switchbot|victoria-metrics|grafana-server|bluetooth)\\\\.service\",state=\"active\"})", "refId": "A" } ]
+    },
+    {
+      "id": 5, "type": "stat", "title": "watchdog発火 (24h)",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "increase(collector_watchdog_restarts_total[24h])", "refId": "A" } ]
+    },
+
+    {
+      "id": 10, "type": "timeseries", "title": "ディスク空き容量 /",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [ { "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}", "legendFormat": "空き", "refId": "A" } ]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "ディスクI/O (SDカード)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "lineWidth": 1 } }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(node_disk_read_bytes_total{device=\"mmcblk0\"}[5m])", "legendFormat": "read", "refId": "A" },
+        { "expr": "rate(node_disk_written_bytes_total{device=\"mmcblk0\"}[5m])", "legendFormat": "write", "refId": "B" }
+      ]
+    },
+    {
+      "id": 12, "type": "state-timeline", "title": "サービス状態",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 13 },
+      "options": { "showValue": "never" },
+      "fieldConfig": { "defaults": {
+        "custom": { "lineWidth": 0, "fillOpacity": 70 },
+        "mappings": [
+          { "type": "value", "options": { "1": { "text": "active", "color": "green" }, "0": { "text": "down", "color": "red" } } } ],
+        "max": 1, "min": 0 }, "overrides": [] },
+      "targets": [ { "expr": "node_systemd_unit_state{name=~\"(switchbot|victoria-metrics|grafana-server|bluetooth|prometheus-node-exporter)\\\\.service\",state=\"active\"}", "legendFormat": "{{name}}", "refId": "A" } ]
+    },
+    {
+      "id": 13, "type": "state-timeline", "title": "電源・スロットリング",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 13 },
+      "options": { "showValue": "never" },
+      "fieldConfig": { "defaults": {
+        "custom": { "lineWidth": 0, "fillOpacity": 70 },
+        "mappings": [
+          { "type": "value", "options": { "0": { "text": "OK", "color": "green" }, "1": { "text": "NG", "color": "red" } } } ],
+        "max": 1, "min": 0 }, "overrides": [] },
+      "targets": [
+        { "expr": "rpi_undervoltage_now", "legendFormat": "電圧低下(現在)", "refId": "A" },
+        { "expr": "rpi_throttled_now", "legendFormat": "スロットリング(現在)", "refId": "B" },
+        { "expr": "rpi_freq_capped_now", "legendFormat": "クロック制限(現在)", "refId": "C" }
+      ]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "センサーデータ鮮度 (watchdog発火=600s)",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "thresholdsStyle": { "mode": "line" } },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "red", "value": 600 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "collector_watchdog_data_age_seconds", "legendFormat": "最終データからの経過", "refId": "A" } ]
+    },
+    {
+      "id": 15, "type": "timeseries", "title": "watchdog発火履歴",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0,
+        "custom": { "drawStyle": "bars", "fillOpacity": 100 } }, "overrides": [] },
+      "targets": [ { "expr": "increase(collector_watchdog_restarts_total[1h])", "legendFormat": "再起動回数/時", "refId": "A" } ]
+    },
+
+    {
+      "id": 20, "type": "timeseries", "title": "CPU使用率",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 27 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat": "使用率", "refId": "A" },
+        { "expr": "100 * avg(rate(node_cpu_seconds_total{mode=\"iowait\"}[5m]))", "legendFormat": "iowait", "refId": "B" }
+      ]
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "ロードアベレージ",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 27 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "lineWidth": 1 } }, "overrides": [] },
+      "targets": [
+        { "expr": "node_load1", "legendFormat": "load1", "refId": "A" },
+        { "expr": "node_load5", "legendFormat": "load5", "refId": "B" },
+        { "expr": "node_load15", "legendFormat": "load15", "refId": "C" }
+      ]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "メモリ",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes", "legendFormat": "使用中", "refId": "A" },
+        { "expr": "node_memory_MemAvailable_bytes", "legendFormat": "available", "refId": "B" },
+        { "expr": "node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes", "legendFormat": "swap使用", "refId": "C" }
+      ]
+    },
+    {
+      "id": 23, "type": "timeseries", "title": "ネットワーク",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "lineWidth": 1 } }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\"}[5m])", "legendFormat": "rx {{device}}", "refId": "A" },
+        { "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\"}[5m])", "legendFormat": "tx {{device}}", "refId": "B" }
+      ]
+    },
+
+    {
+      "id": 30, "type": "timeseries", "title": "VictoriaMetrics データサイズ",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 43 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [ { "expr": "sum(vm_data_size_bytes)", "legendFormat": "合計", "refId": "A" } ]
+    },
+    {
+      "id": 31, "type": "timeseries", "title": "取り込みレート",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 43 },
+      "fieldConfig": { "defaults": { "unit": "rowsps", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1 } }, "overrides": [] },
+      "targets": [ { "expr": "sum(rate(vm_rows_inserted_total[5m]))", "legendFormat": "rows/s", "refId": "A" } ]
+    },
+    {
+      "id": 32, "type": "timeseries", "title": "アクティブ系列数",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 43 },
+      "fieldConfig": { "defaults": { "min": 0, "custom": { "drawStyle": "line", "lineWidth": 1 } }, "overrides": [] },
+      "targets": [ { "expr": "vm_cache_entries{type=\"storage/hour_metric_ids\"}", "legendFormat": "系列数(直近1h)", "refId": "A" } ]
+    },
+    {
+      "id": 33, "type": "bargauge", "title": "センサー最終受信からの経過時間",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 50 },
+      "options": { "displayMode": "gradient", "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0, "max": 3600,
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "yellow", "value": 600 }, { "color": "red", "value": 1800 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "time() - max by (location) (timestamp(climate_temperature))", "legendFormat": "{{location}}", "refId": "A" } ]
+    }
+  ]
+}
