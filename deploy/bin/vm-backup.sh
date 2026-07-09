@@ -5,7 +5,13 @@ command -v rclone >/dev/null && rclone listremotes 2>/dev/null | grep -q "^pclou
 SNAP=$(curl -s -X POST "http://localhost:8428/snapshot/create" | python3 -c "import json,sys; print(json.load(sys.stdin)[\"snapshot\"])")
 trap "curl -s -X POST \"http://localhost:8428/snapshot/delete?snapshot=$SNAP\" >/dev/null" EXIT
 TARBALL="/tmp/vm-backup.tar.gz"
-tar czf "$TARBALL" -C /var/lib/victoria-metrics/snapshots "$SNAP"
+# スナップショットは4箇所に分散する (snapshots/=メタデータ, data/*/snapshots/=実データの
+# ハードリンク)。全てを相対パス構造ごと tar しないと空バックアップになる
+tar czf "$TARBALL" -C /var/lib/victoria-metrics \
+  "snapshots/$SNAP" \
+  "data/big/snapshots/$SNAP" \
+  "data/small/snapshots/$SNAP" \
+  "data/indexdb/snapshots/$SNAP"
 rclone copyto "$TARBALL" "pcloud:homeserver-backup/vm-backup-latest.tar.gz"
 # 週次の世代コピー (日曜)
 if [ "$(date +%u)" = "7" ]; then

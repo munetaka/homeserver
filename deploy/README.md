@@ -41,8 +41,19 @@
    ```
 5. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
    (未設定の間 vm-backup.sh はスキップ動作)。
-6. データ復元: pCloud 上の `homeserver-backup/vm-backup-latest.tar.gz` を展開し、
-   `victoria-metrics` 停止中に `/var/lib/victoria-metrics` へ配置して起動
-   (スナップショット形式なので `vmrestore` 相当の手動展開で可)。
+6. データ復元: pCloud 上の `homeserver-backup/vm-backup-latest.tar.gz` を取得し、
+   `victoria-metrics` **停止中**に以下を実施:
+   ```bash
+   tar xzf vm-backup-latest.tar.gz          # snapshots/<名前>/... の構造で展開される
+   SNAP=<展開されたスナップショット名>
+   # 各スナップショットの中身を対応するディレクトリへ戻す
+   rsync -a snapshots/$SNAP/            /var/lib/victoria-metrics/
+   rsync -a data/big/snapshots/$SNAP/    /var/lib/victoria-metrics/data/big/
+   rsync -a data/small/snapshots/$SNAP/  /var/lib/victoria-metrics/data/small/
+   rsync -a data/indexdb/snapshots/$SNAP/ /var/lib/victoria-metrics/data/indexdb/
+   chown -R victoriametrics: /var/lib/victoria-metrics
+   ```
+   ※ スナップショットは snapshots/(メタデータ)と data/{big,small,indexdb}/snapshots/
+   (実データ)の4箇所に分散する点に注意(vm-backup.sh はこの4箇所を tar している)。
 
 詳細な運用手順・障害対応は [docs/runbook.md](../docs/runbook.md) を参照。
