@@ -147,11 +147,18 @@ watchdog は climate データが 10 分以上更新されない場合に blueto
 日々の運用・障害対応は [docs/runbook.md](docs/runbook.md) を参照してください。
 
 ## Testing
-Run the unit test suite with:
+Run the test suite (pytest; the dev dependency group is synced automatically):
 
 ```bash
-uv run python -m unittest discover -s tests -t .
+uv run pytest             # tests only
+uv run pytest --cov       # with coverage (fails under the floor in pyproject.toml)
 ```
+
+Existing unittest-style tests run under pytest as-is; write new tests in pytest
+style. Coverage settings live in `pyproject.toml` (`[tool.coverage.*]`), with
+hardware-bound BLE discovery excluded via `pragma: no cover`. CI
+(`.github/workflows/test.yml`) runs the same suite plus shellcheck for
+`deploy/bin/*.sh` on every push.
 
 ## Notes
 - BLE decoding currently covers Meter, Meter Plus, CO2 meters (including outdoor versions), and Hub 2 (temperature/humidity only; no battery since it is mains powered). Unrecognized payloads fall back to `type=unknown` with a `code_0x..` label.

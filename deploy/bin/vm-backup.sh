@@ -1,9 +1,12 @@
 #!/bin/bash
 # VictoriaMetrics snapshot -> pCloud backup
 set -euo pipefail
-command -v rclone >/dev/null && rclone listremotes 2>/dev/null | grep -q "^pcloud:" || { echo "pcloud remote not configured; skipping backup"; exit 0; }
+if ! command -v rclone >/dev/null || ! rclone listremotes 2>/dev/null | grep -q "^pcloud:"; then
+  echo "pcloud remote not configured; skipping backup"
+  exit 0
+fi
 SNAP=$(curl -s -X POST "http://localhost:8428/snapshot/create" | python3 -c "import json,sys; print(json.load(sys.stdin)[\"snapshot\"])")
-trap "curl -s -X POST \"http://localhost:8428/snapshot/delete?snapshot=$SNAP\" >/dev/null" EXIT
+trap 'curl -s -X POST "http://localhost:8428/snapshot/delete?snapshot=$SNAP" >/dev/null' EXIT
 TARBALL="/tmp/vm-backup.tar.gz"
 # スナップショットは4箇所に分散する (snapshots/=メタデータ, data/*/snapshots/=実データの
 # ハードリンク)。全てを相対パス構造ごと tar しないと空バックアップになる

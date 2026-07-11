@@ -320,7 +320,8 @@ def _run_coroutine(factory: Callable[[], Coroutine[Any, Any, T]]) -> T:
         raise
 
 
-async def _discover_with_advertisements(scan_timeout_s: float):
+async def _discover_with_advertisements(scan_timeout_s: float):  # pragma: no cover - 実BLEハードウェア必須
+
     try:
         from bleak import BleakScanner  # type: ignore
     except ImportError as exc:  # pragma: no cover - import guard

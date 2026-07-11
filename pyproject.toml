@@ -24,3 +24,26 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+# 計測対象は実装本体のみ (homeserver/ は Hello World スタブ)
+source = ["src/cli"]
+
+[tool.coverage.report]
+# 現在の実測値を下限として退行をブロックする。テスト拡充に合わせて引き上げる
+fail_under = 65
+show_missing = true
+exclude_also = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
