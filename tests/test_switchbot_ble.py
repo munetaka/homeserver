@@ -1,6 +1,7 @@
 import asyncio
-import unittest
 from unittest import mock
+
+import pytest
 
 from cli.switchbot_ble import (
     BleTarget,
@@ -28,25 +29,25 @@ class _FakeAdvertisement:
         self.rssi = rssi
 
 
-class SwitchBotBleParsingTest(unittest.TestCase):
+class TestSwitchBotBleParsing:
     def test_parse_single_target(self):
         target = parse_ble_target("AA:BB:CC:DD:EE:FF@co2=Living")
-        self.assertEqual(target.mac, "AA:BB:CC:DD:EE:FF")
-        self.assertEqual(target.device_type, "co2")
-        self.assertEqual(target.alias, "Living")
+        assert target.mac == "AA:BB:CC:DD:EE:FF"
+        assert target.device_type == "co2"
+        assert target.alias == "Living"
 
     def test_parse_multiple_targets(self):
         specs = ["AA:BB:CC:DD:EE:01", "aa:bb:cc:dd:ee:02@meter=Kitchen"]
         targets = parse_ble_targets(specs)
-        self.assertEqual(len(targets), 2)
-        self.assertEqual(targets[0].alias, "AA:BB:CC:DD:EE:01")
-        self.assertEqual(targets[1].alias, "Kitchen")
-        self.assertEqual(targets[1].device_type, "meter")
+        assert len(targets) == 2
+        assert targets[0].alias == "AA:BB:CC:DD:EE:01"
+        assert targets[1].alias == "Kitchen"
+        assert targets[1].device_type == "meter"
 
     def test_parse_uuid_address(self):
         uid = "8de2d14e-3b1c-2e66-d617-17f304c864ea"
         target = parse_ble_target(f"{uid}=Sensor")
-        self.assertEqual(target.mac, uid.upper())
+        assert target.mac == uid.upper()
 
     def test_decode_meter_payload(self):
         payload = bytes.fromhex("540064")
@@ -57,12 +58,12 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         )
         target = BleTarget(mac="AA:BB:CC:DD:EE:FF", device_type="meter", alias="Living")
         reading = decode_switchbot_advertisement(target, adv)
-        self.assertIsNotNone(reading)
-        self.assertAlmostEqual(reading.temperature, 23.8)
-        self.assertAlmostEqual(reading.humidity, 58.0)
-        self.assertEqual(reading.battery, 100)
-        self.assertEqual(reading.device_id, "AA:BB:CC:DD:EE:FF")
-        self.assertEqual(reading.name, "Living")
+        assert reading is not None
+        assert reading.temperature == pytest.approx(23.8)
+        assert reading.humidity == pytest.approx(58.0)
+        assert reading.battery == 100
+        assert reading.device_id == "AA:BB:CC:DD:EE:FF"
+        assert reading.name == "Living"
 
     def test_decode_meter_payload_fahrenheit_display_stays_celsius(self):
         # Same layout as test_decode_meter_payload but with bit 7 of the
@@ -75,9 +76,9 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         )
         target = BleTarget(mac="AA:BB:CC:DD:EE:FF", device_type="meter", alias="WIC")
         reading = decode_switchbot_advertisement(target, adv)
-        self.assertIsNotNone(reading)
-        self.assertAlmostEqual(reading.temperature, 23.8)
-        self.assertAlmostEqual(reading.humidity, 58.0)
+        assert reading is not None
+        assert reading.temperature == pytest.approx(23.8)
+        assert reading.humidity == pytest.approx(58.0)
 
     def test_decode_hub2_payload(self):
         # Real advertisement captured from a Hub 2 (MAC D3:27:F3:64:6B:34)
@@ -92,14 +93,14 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         )
         target = BleTarget(mac="D3:27:F3:64:6B:34", device_type="hub2", alias="Utility")
         reading = decode_switchbot_advertisement(target, adv)
-        self.assertIsNotNone(reading)
-        self.assertAlmostEqual(reading.temperature, 25.9)
-        self.assertAlmostEqual(reading.humidity, 59.0)
-        self.assertIsNone(reading.co2)
+        assert reading is not None
+        assert reading.temperature == pytest.approx(25.9)
+        assert reading.humidity == pytest.approx(59.0)
+        assert reading.co2 is None
         # Hub 2 is mains powered and does not report battery.
-        self.assertIsNone(reading.battery)
-        self.assertEqual(reading.device_id, "D3:27:F3:64:6B:34")
-        self.assertEqual(reading.name, "Utility")
+        assert reading.battery is None
+        assert reading.device_id == "D3:27:F3:64:6B:34"
+        assert reading.name == "Utility"
 
     def test_decode_hub2_short_manufacturer_data_has_no_values(self):
         adv = _FakeAdvertisement(
@@ -108,14 +109,14 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         )
         target = BleTarget(mac="D3:27:F3:64:6B:34", device_type="hub2", alias="Utility")
         reading = decode_switchbot_advertisement(target, adv)
-        self.assertIsNotNone(reading)
-        self.assertIsNone(reading.temperature)
-        self.assertIsNone(reading.humidity)
+        assert reading is not None
+        assert reading.temperature is None
+        assert reading.humidity is None
 
     def test_parse_target_hub2_type(self):
         target = parse_ble_target("D3:27:F3:64:6B:34@hub2=Utility")
-        self.assertEqual(target.device_type, "hub2")
-        self.assertEqual(target.alias, "Utility")
+        assert target.device_type == "hub2"
+        assert target.alias == "Utility"
 
     def test_scan_switchbot_devices_hub2(self):
         payload = bytes.fromhex("7600")
@@ -131,12 +132,12 @@ class SwitchBotBleParsingTest(unittest.TestCase):
             devices = scan_switchbot_devices(3.0)
 
         info = devices[0]
-        self.assertTrue(info["is_switchbot"])
-        self.assertEqual(info["device_type"], "hub2")
-        self.assertEqual(info["device_model"], "hub2")
-        self.assertEqual(info["device_code"], 0x76)
-        self.assertAlmostEqual(info["reading"].temperature, 25.9)
-        self.assertAlmostEqual(info["reading"].humidity, 59.0)
+        assert info["is_switchbot"] is True
+        assert info["device_type"] == "hub2"
+        assert info["device_model"] == "hub2"
+        assert info["device_code"] == 0x76
+        assert info["reading"].temperature == pytest.approx(25.9)
+        assert info["reading"].humidity == pytest.approx(59.0)
 
     def test_collect_ble_readings_async_runs_on_caller_loop(self):
         # The run loop awaits this from one persistent event loop; make sure it
@@ -159,12 +160,12 @@ class SwitchBotBleParsingTest(unittest.TestCase):
             readings = asyncio.run(collect_ble_readings_async([target], 3.0))
 
         run_coroutine.assert_not_called()
-        self.assertEqual(len(readings), 1)
-        self.assertEqual(readings[0].name, "Toilet")
-        self.assertAlmostEqual(readings[0].temperature, 23.8)
+        assert len(readings) == 1
+        assert readings[0].name == "Toilet"
+        assert readings[0].temperature == pytest.approx(23.8)
 
     def test_collect_ble_readings_async_requires_targets(self):
-        with self.assertRaises(RuntimeError):
+        with pytest.raises(RuntimeError):
             asyncio.run(collect_ble_readings_async([], 3.0))
 
     def test_decode_co2_payload(self):
@@ -176,19 +177,19 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         )
         target = BleTarget(mac="AA:BB:CC:DD:EE:00", device_type="co2", alias="Office")
         reading = decode_switchbot_advertisement(target, adv)
-        self.assertIsNotNone(reading)
-        self.assertAlmostEqual(reading.temperature, 24.3, places=1)
-        self.assertAlmostEqual(reading.humidity, 58.0, places=1)
-        self.assertEqual(reading.co2, 0x035D)
-        self.assertEqual(reading.battery, 100)
+        assert reading is not None
+        assert reading.temperature == pytest.approx(24.3, abs=0.05)
+        assert reading.humidity == pytest.approx(58.0, abs=0.05)
+        assert reading.co2 == 0x035D
+        assert reading.battery == 100
 
     def test_normalize_address_accepts_uuid(self):
         uuid_addr = "8de2d14e-3b1c-2e66-d617-17f304c864ea"
-        self.assertEqual(normalize_address(uuid_addr), uuid_addr.upper())
+        assert normalize_address(uuid_addr) == uuid_addr.upper()
 
     def test_normalize_address_accepts_hex32(self):
         hex_addr = "8de2d14e3b1c2e66d61717f304c864ea"
-        self.assertEqual(normalize_address(hex_addr), hex_addr.upper())
+        assert normalize_address(hex_addr) == hex_addr.upper()
 
     def test_scan_switchbot_devices_aggregates(self):
         payload = bytes.fromhex("540064")
@@ -203,16 +204,16 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         with mock.patch("cli.switchbot_ble._run_coroutine", return_value=[(device, adv)]):
             devices = scan_switchbot_devices(3.0)
 
-        self.assertEqual(len(devices), 1)
+        assert len(devices) == 1
         info = devices[0]
-        self.assertEqual(info["mac"], "AA:BB:CC:DD:EE:FF")
-        self.assertEqual(info["name"], "Thermo")
-        self.assertEqual(info["device_type"], "meter")
-        self.assertEqual(info["device_model"], "meter")
-        self.assertEqual(info["device_code"], 0x54)
-        self.assertEqual(info["rssi"], -70)
-        self.assertIsNotNone(info["reading"])
-        self.assertTrue(info["is_switchbot"])
+        assert info["mac"] == "AA:BB:CC:DD:EE:FF"
+        assert info["name"] == "Thermo"
+        assert info["device_type"] == "meter"
+        assert info["device_model"] == "meter"
+        assert info["device_code"] == 0x54
+        assert info["rssi"] == -70
+        assert info["reading"] is not None
+        assert info["is_switchbot"] is True
 
     def test_scan_switchbot_devices_unknown_type(self):
         payload = bytes([0x99, 0x00, 80])
@@ -224,9 +225,9 @@ class SwitchBotBleParsingTest(unittest.TestCase):
             devices = scan_switchbot_devices(3.0)
 
         info = devices[0]
-        self.assertTrue(info["is_switchbot"])
-        self.assertEqual(info["device_type"], "unknown")
-        self.assertIsNone(info["reading"])
+        assert info["is_switchbot"] is True
+        assert info["device_type"] == "unknown"
+        assert info["reading"] is None
 
     def test_scan_switchbot_devices_unknown_code_with_meter_layout(self):
         payload = bytes([0x51, 0x00, 92, 0x02, 0x97, 0x32])
@@ -239,10 +240,10 @@ class SwitchBotBleParsingTest(unittest.TestCase):
             devices = scan_switchbot_devices(3.0)
 
         info = devices[0]
-        self.assertTrue(info["is_switchbot"])
-        self.assertEqual(info["device_type"], "unknown")
-        self.assertIsNone(info["device_model"])
-        self.assertIsNone(info["reading"])
+        assert info["is_switchbot"] is True
+        assert info["device_type"] == "unknown"
+        assert info["device_model"] is None
+        assert info["reading"] is None
 
     def test_scan_switchbot_devices_co2(self):
         payload = bytes.fromhex("350064")
@@ -258,10 +259,10 @@ class SwitchBotBleParsingTest(unittest.TestCase):
             devices = scan_switchbot_devices(3.0)
 
         info = devices[0]
-        self.assertEqual(info["device_type"], "co2")
-        self.assertEqual(info["device_model"], "co2_meter")
-        self.assertEqual(info["device_code"], 0x35)
-        self.assertEqual(info["reading"].co2, 0x035D)
+        assert info["device_type"] == "co2"
+        assert info["device_model"] == "co2_meter"
+        assert info["device_code"] == 0x35
+        assert info["reading"].co2 == 0x035D
 
     def test_scan_switchbot_devices_other_vendor(self):
         adv = _FakeAdvertisement(manufacturer_data={0x004C: b"\x02\x15"})
@@ -271,10 +272,6 @@ class SwitchBotBleParsingTest(unittest.TestCase):
             devices = scan_switchbot_devices(3.0)
 
         info = devices[0]
-        self.assertFalse(info["is_switchbot"])
-        self.assertIsNone(info["device_type"])
-        self.assertIsNone(info["reading"])
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert info["is_switchbot"] is False
+        assert info["device_type"] is None
+        assert info["reading"] is None
