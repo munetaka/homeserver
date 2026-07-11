@@ -9,8 +9,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      # setup-uv は v8 からメジャータグ (@v8) を公開しないため完全バージョンで指定
+      - uses: astral-sh/setup-uv@v8.3.2
       - name: Run tests with coverage
         run: uv run pytest --cov
       - name: Coverage summary
