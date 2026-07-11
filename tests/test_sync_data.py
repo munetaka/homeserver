@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from typer.testing import CliRunner
 
@@ -184,8 +184,9 @@ class RunLoopSelfExitTest(unittest.TestCase):
 
     def test_run_exits_nonzero_after_consecutive_errors(self):
         with patch("cli.sync_data._load_env", return_value=self.BLE_ENV), \
-             patch("cli.sync_data._collect_once", side_effect=RuntimeError("dbus down")), \
-             patch("cli.sync_data.time.sleep"):
+             patch("cli.sync_data._collect_once_async",
+                   new=AsyncMock(side_effect=RuntimeError("dbus down"))), \
+             patch("cli.sync_data.asyncio.sleep", new=AsyncMock()):
             result = self.runner.invoke(sync_data.app, ["run", "--interval", "60"])
 
         self.assertEqual(result.exit_code, 1)
@@ -205,9 +206,9 @@ class RunLoopSelfExitTest(unittest.TestCase):
             + [KeyboardInterrupt()]
         )
         with patch("cli.sync_data._load_env", return_value=self.BLE_ENV), \
-             patch("cli.sync_data._collect_once", side_effect=effects), \
+             patch("cli.sync_data._collect_once_async", new=AsyncMock(side_effect=effects)), \
              patch("cli.sync_data._write_influx"), \
-             patch("cli.sync_data.time.sleep"):
+             patch("cli.sync_data.asyncio.sleep", new=AsyncMock()):
             result = self.runner.invoke(sync_data.app, ["run", "--interval", "60"])
 
         self.assertEqual(result.exit_code, 0)

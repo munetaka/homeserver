@@ -1,8 +1,10 @@
+import asyncio
 import unittest
 from unittest import mock
 
 from cli.switchbot_ble import (
     BleTarget,
+    collect_ble_readings_async,
     decode_switchbot_advertisement,
     normalize_address,
     parse_ble_target,
@@ -135,6 +137,35 @@ class SwitchBotBleParsingTest(unittest.TestCase):
         self.assertEqual(info["device_code"], 0x76)
         self.assertAlmostEqual(info["reading"].temperature, 25.9)
         self.assertAlmostEqual(info["reading"].humidity, 59.0)
+
+    def test_collect_ble_readings_async_runs_on_caller_loop(self):
+        # The run loop awaits this from one persistent event loop; make sure it
+        # scans and decodes without spawning its own loop (no _run_coroutine).
+        payload = bytes.fromhex("540064")
+        manufacturer = bytes.fromhex("f2b202064a8ba90208973a00")
+        adv = _FakeAdvertisement(
+            service_data={"0000fd3d-0000-1000-8000-00805F9B34FB": payload},
+            manufacturer_data={0x0969: manufacturer},
+        )
+        device = _FakeDevice(address="F2:B2:02:06:4A:8B")
+        target = BleTarget(mac="F2:B2:02:06:4A:8B", device_type="meter", alias="Toilet")
+
+        async def fake_discover(timeout):
+            return [(device, adv)]
+
+        with mock.patch(
+            "cli.switchbot_ble._discover_with_advertisements", side_effect=fake_discover
+        ), mock.patch("cli.switchbot_ble._run_coroutine") as run_coroutine:
+            readings = asyncio.run(collect_ble_readings_async([target], 3.0))
+
+        run_coroutine.assert_not_called()
+        self.assertEqual(len(readings), 1)
+        self.assertEqual(readings[0].name, "Toilet")
+        self.assertAlmostEqual(readings[0].temperature, 23.8)
+
+    def test_collect_ble_readings_async_requires_targets(self):
+        with self.assertRaises(RuntimeError):
+            asyncio.run(collect_ble_readings_async([], 3.0))
 
     def test_decode_co2_payload(self):
         payload = bytes.fromhex("350064")

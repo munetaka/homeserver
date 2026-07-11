@@ -369,14 +369,18 @@ async def _scan_once_async(
     return list(readings_map.values())
 
 
-def collect_ble_readings(
+async def collect_ble_readings_async(
     targets: list[BleTarget],
     scan_timeout_s: float,
 ) -> list[SwitchBotReading]:
     """
-    Run a single BLE scan and return readings for configured targets.
+    Run a single BLE scan on the current event loop and return readings for
+    configured targets.
 
-    The function blocks until the scan completes.
+    Long-running callers (the ``run`` loop) must await this from a single
+    persistent event loop: bleak keeps one D-Bus connection per loop, and
+    creating a fresh loop per scan leaks connections until dbus-daemon's
+    per-UID limit (256) blocks the client entirely.
     """
     if not targets:
         raise RuntimeError("At least one BLE device must be configured for BLE mode")
@@ -389,7 +393,20 @@ def collect_ble_readings(
             continue
         hardware_map[mac_bytes] = target
 
-    return _run_coroutine(lambda: _scan_once_async(target_map, hardware_map, scan_timeout_s))
+    return await _scan_once_async(target_map, hardware_map, scan_timeout_s)
+
+
+def collect_ble_readings(
+    targets: list[BleTarget],
+    scan_timeout_s: float,
+) -> list[SwitchBotReading]:
+    """
+    Run a single BLE scan and return readings for configured targets.
+
+    The function blocks until the scan completes. One-shot use only (``push``);
+    see collect_ble_readings_async for the loop-safe variant.
+    """
+    return _run_coroutine(lambda: collect_ble_readings_async(targets, scan_timeout_s))
 
 
 def scan_switchbot_devices(

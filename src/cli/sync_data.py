@@ -29,6 +29,7 @@ ENV (.env 推奨):
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import base64
@@ -47,6 +48,7 @@ from .switchbot_ble import (
     BleTarget,
     SwitchBotReading,
     collect_ble_readings,
+    collect_ble_readings_async,
     parse_ble_target,
     parse_ble_targets,
     scan_switchbot_devices,
@@ -392,6 +394,81 @@ def _collect_once(
     return lines
 
 
+async def _collect_once_async(
+    location_prefix: str,
+    mode: str,
+    timeout_s: float,
+    ef_model: str,
+    token: Optional[str] = None,
+    secret: Optional[str] = None,
+    ble_targets: Optional[List[BleTarget]] = None,
+    ble_scan_timeout_s: float = 5.0,
+) -> list[str]:
+    """_collect_once の async 版。呼び出し元のイベントループ上でBLEスキャンする。"""
+    ts_ms = int(time.time() * 1000)
+    if mode == "ble":
+        readings = await collect_ble_readings_async(ble_targets or [], ble_scan_timeout_s)
+    elif mode == "api":
+        if not token or not secret:
+            raise RuntimeError("SwitchBot API token/secret are required for API mode")
+        readings = _collect_api_readings(token, secret, timeout_s)
+    else:
+        raise RuntimeError(f"Unsupported mode '{mode}'")
+
+    lines: List[str] = []
+    for reading in readings:
+        line = _reading_to_line(reading, location_prefix, ef_model, ts_ms)
+        if line:
+            lines.append(line)
+    return lines
+
+
+async def _run_loop_async(
+    interval: int,
+    location_prefix: str,
+    mode: str,
+    timeout_s: float,
+    ef_model: str,
+    token: Optional[str],
+    secret: Optional[str],
+    ble_targets: Optional[List[BleTarget]],
+    ble_scan_timeout_s: float,
+    influx_url: str,
+    bucket_or_db: str,
+    token_influx: str,
+    use_v3_native: bool,
+) -> None:
+    """`run` の常駐ループ。プロセスの生存期間中この1つのイベントループを使い続ける。"""
+    consecutive_errors = 0
+    while True:
+        try:
+            lines = await _collect_once_async(
+                location_prefix=location_prefix,
+                mode=mode,
+                timeout_s=timeout_s,
+                ef_model=ef_model,
+                token=token,
+                secret=secret,
+                ble_targets=ble_targets,
+                ble_scan_timeout_s=ble_scan_timeout_s,
+            )
+            if lines:
+                _write_influx(lines, influx_url, bucket_or_db, token_influx, timeout_s, use_v3_native)
+                typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] wrote {len(lines)} points")
+            else:
+                typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] no datapoints")
+            consecutive_errors = 0
+        except Exception as e:
+            consecutive_errors += 1
+            typer.echo(f"error: {e}")
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                typer.echo(
+                    f"{consecutive_errors} consecutive errors; exiting so systemd can restart the service"
+                )
+                raise typer.Exit(code=1)
+        await asyncio.sleep(interval)
+
+
 def _guess_ble_type(device_type: str) -> str:
     dt = (device_type or "").lower()
     if "co2" in dt or "air quality" in dt:
@@ -689,35 +766,27 @@ def run(
         sb_secret = None
 
     typer.echo(f"Starting loop: every {interval}s (Ctrl+C to stop)")
-    consecutive_errors = 0
+    # ループ全体を1つのイベントループで回す。bleak はイベントループごとに
+    # D-Bus 接続を張るため、サイクルごとに asyncio.run() すると接続がリークし、
+    # dbus-daemon の UID あたり256接続の上限で BLE スキャンが全滅する。
     try:
-        while True:
-            try:
-                lines = _collect_once(
-                    location_prefix=location_prefix,
-                    mode=active_mode,
-                    timeout_s=timeout_s,
-                    ef_model=ef_model,
-                    token=sb_token,
-                    secret=sb_secret,
-                    ble_targets=ble_targets,
-                    ble_scan_timeout_s=ble_scan_timeout,
-                )
-                if lines:
-                    _write_influx(lines, influx_url, bucket_or_db, token_influx, timeout_s, use_v3_native)
-                    typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] wrote {len(lines)} points")
-                else:
-                    typer.echo(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] no datapoints")
-                consecutive_errors = 0
-            except Exception as e:
-                consecutive_errors += 1
-                typer.echo(f"error: {e}")
-                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
-                    typer.echo(
-                        f"{consecutive_errors} consecutive errors; exiting so systemd can restart the service"
-                    )
-                    raise typer.Exit(code=1)
-            time.sleep(interval)
+        asyncio.run(
+            _run_loop_async(
+                interval=interval,
+                location_prefix=location_prefix,
+                mode=active_mode,
+                timeout_s=timeout_s,
+                ef_model=ef_model,
+                token=sb_token,
+                secret=sb_secret,
+                ble_targets=ble_targets,
+                ble_scan_timeout_s=ble_scan_timeout,
+                influx_url=influx_url,
+                bucket_or_db=bucket_or_db,
+                token_influx=token_influx,
+                use_v3_native=use_v3_native,
+            )
+        )
     except KeyboardInterrupt:
         typer.echo("stopped")
 
