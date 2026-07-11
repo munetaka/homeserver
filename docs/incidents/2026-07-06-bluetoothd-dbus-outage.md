@@ -55,3 +55,25 @@ sudo systemctl restart bluetooth && sleep 5 && sudo systemctl restart switchbot.
 - サービス再起動で直らない障害がある。依存デーモン(bluetoothd)まで含めて再起動するのが
   自宅運用では現実的な落とし所
 - 監視は「プロセスが生きているか」ではなく**「データが流れているか」**を見る
+
+## 追記 (2026-07-11): 真の根本原因が判明、コードで恒久修正
+
+同種の障害が 2026-07-11 11:12 に再発し(watchdog により14分で自動復旧)、調査の結果
+「bluetoothd の劣化」は二次症状で、**真因はコレクター自身の D-Bus 接続リーク**だったことが
+確定した。
+
+- コレクターの `run` ループはサイクル(約80〜95秒)ごとに `asyncio.run()` を呼んでおり、
+  bleak はイベントループごとに D-Bus 接続を張るため、**毎サイクル接続が1本リーク**していた
+- 約256サイクル(≒6時間)で dbus-daemon の上限に到達:
+  `dbus-daemon[678]: The maximum number of active connections for UID 1000 has been
+  reached (max_connections_per_user=256)`(11:12:42、エラー開始と同時刻)
+- 以降のスキャンは全て `D-Bus AccessDenied` で失敗。bluetoothd 側に残った宙吊りの
+  ディスカバリセッションが「コレクター再起動だけでは直らない」症状を作っていた
+- bleak メンテナーが公式に指摘している誤用パターン
+  (https://github.com/hbldh/bleak/discussions/1273):
+  「asyncio.run() はアプリのトップレベルで1回だけ。BlueZManager は閉じない前提の
+  アプリ単位シングルトン」
+
+**恒久修正**(commit `feaf656`): `run` ループ全体を単一の `asyncio.run()` 配下に移し、
+D-Bus 接続を1本だけ張って使い回す構造に変更。256上限には到達し得なくなった。
+watchdog と self-exit は別要因(ハード障害等)への保険として存置。
