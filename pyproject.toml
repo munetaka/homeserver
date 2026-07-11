@@ -27,8 +27,11 @@ package = true
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.156.6",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    "responses>=0.26.2",
+    "time-machine>=3.2.0",
 ]
 
 [tool.pytest.ini_options]
@@ -41,7 +44,7 @@ source = ["src/cli"]
 
 [tool.coverage.report]
 # 現在の実測値を下限として退行をブロックする。テスト拡充に合わせて引き上げる
-fail_under = 65
+fail_under = 80
 show_missing = true
 exclude_also = [
     "pragma: no cover",
