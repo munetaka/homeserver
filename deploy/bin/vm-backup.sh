@@ -11,7 +11,8 @@ tar czf "$TARBALL" -C /var/lib/victoria-metrics \
   "snapshots/$SNAP" \
   "data/big/snapshots/$SNAP" \
   "data/small/snapshots/$SNAP" \
-  "data/indexdb/snapshots/$SNAP"
+  "data/indexdb/snapshots/$SNAP" \
+  -C /opt/homeserver .env
 rclone copyto "$TARBALL" "pcloud:homeserver-backup/vm-backup-latest.tar.gz"
 # 週次の世代コピー (日曜)
 if [ "$(date +%u)" = "7" ]; then

@@ -55,5 +55,7 @@
    ```
    ※ スナップショットは snapshots/(メタデータ)と data/{big,small,indexdb}/snapshots/
    (実データ)の4箇所に分散する点に注意(vm-backup.sh はこの4箇所を tar している)。
+   tar のルートには `.env`(コレクターの設定・SwitchBotトークン・BLEデバイスリスト)も
+   含まれるので、`/opt/homeserver/.env` に配置して chmod 640 する。
 
 詳細な運用手順・障害対応は [docs/runbook.md](../docs/runbook.md) を参照。
