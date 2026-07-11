@@ -13,5 +13,14 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Run tests with coverage
         run: uv run pytest --cov
+      - name: Coverage summary
+        # カバレッジ不足 (fail_under) でテストが落ちたときこそ内訳を見たいので always。
+        # --fail-under=0 は summary 出力ステップ自体が二重に失敗しないようにするため
+        if: always()
+        run: |
+          if [ -f .coverage ]; then
+            echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
+            uv run coverage report --format=markdown --fail-under=0 >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Lint deploy scripts
         run: shellcheck deploy/bin/*.sh
