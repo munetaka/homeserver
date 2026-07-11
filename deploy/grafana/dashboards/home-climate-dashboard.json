@@ -131,7 +131,8 @@
             "drawStyle": "line",
             "lineWidth": 1,
             "spanNulls": 300000
-          }
+          },
+          "decimals": 2
         },
         "overrides": []
       },
@@ -149,8 +150,8 @@
       "title": "電池残量 (%)",
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
+        "w": 12,
+        "x": 12,
         "y": 16
       },
       "options": {
@@ -190,6 +191,36 @@
       "targets": [
         {
           "expr": "climate_battery",
+          "legendFormat": "{{location}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "露点温度 (°C) — 表面温度がこれを下回ると結露",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "spanNulls": 300000
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "with (g = ln(climate_humidity/100) + 17.62*climate_temperature/(243.12+climate_temperature)) 243.12*g/(17.62-g)",
           "legendFormat": "{{location}}",
           "refId": "A"
         }
