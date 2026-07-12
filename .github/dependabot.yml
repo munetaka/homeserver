@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # GitHub Actions (workflows の uses: 行を監視)。
+  # setup-uv は v8 からメジャータグ廃止で完全バージョン固定のため、追従はこれに任せる
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Python 依存 (pyproject.toml / uv.lock を監視)。
+  # bleak 等ハードウェア絡みのメジャー更新は CI が緑でもラズパイ実機確認をしてからマージする
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
