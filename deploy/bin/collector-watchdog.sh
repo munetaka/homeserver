@@ -73,3 +73,30 @@ if [ "$AGE" -gt 600 ] || [ "$AGE" -lt -120 ]; then
 else
   write_metrics "$AGE"
 fi
+
+# 電力コレクター (echonet.service) の鮮度チェック。BLE と独立した系なので
+# こちらは echonet.service の再起動だけで良い (bluetooth は無関係)
+if systemctl is-active --quiet echonet.service; then
+  PLAST=$(curl -s --max-time 10 -G "http://localhost:8428/api/v1/query" \
+    --data-urlencode "query=max(timestamp(power_generation_w[1h]))" | python3 -c "
+import json,sys
+try:
+    d = json.load(sys.stdin)
+    if d.get(\"status\") != \"success\":
+        print(-1)
+    else:
+        r = d[\"data\"][\"result\"]
+        print(int(float(r[0][\"value\"][1])) if r else 0)
+except Exception:
+    print(-1)")
+  if [ "$PLAST" -eq 0 ] 2>/dev/null; then
+    echo "no power data in the last hour; restarting echonet.service"
+    systemctl restart echonet.service
+  elif [ "$PLAST" -gt 0 ] 2>/dev/null; then
+    PAGE=$(( $(date +%s) - PLAST ))
+    if [ "$PAGE" -gt 600 ] || [ "$PAGE" -lt -120 ]; then
+      echo "power data stale (${PAGE}s); restarting echonet.service"
+      systemctl restart echonet.service
+    fi
+  fi
+fi

@@ -1,0 +1,16 @@
+[Unit]
+Description=ECHONET Lite power collector
+After=network-online.target victoria-metrics.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/homeserver
+ExecStart=/home/homepi/.local/bin/uv run el run --interval 60
+Restart=on-failure
+RestartSec=30
+User=homepi
+Group=homepi
+
+[Install]
+WantedBy=multi-user.target

@@ -17,6 +17,7 @@ dependencies = [
 [project.scripts]
 homeserver = "homeserver:main"
 sb = "cli.sync_data:app"
+el = "cli.echonet:app"
 
 [build-system]
 requires = ["uv_build>=0.8.15,<0.9.0"]
