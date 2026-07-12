@@ -1,0 +1,109 @@
+{
+  "uid": "home-power",
+  "title": "電力モニタリング",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "太陽光発電",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "watt", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [
+        { "color": "text", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "sum(power_generation_w)", "refId": "A" } ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "総消費電力",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "watt", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [
+        { "color": "blue", "value": null }, { "color": "yellow", "value": 3000 }, { "color": "red", "value": 6000 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "sum(power_generation_w) + sum(power_grid_w)", "refId": "A" } ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "系統電力 (正=買電 / 負=売電)",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "watt", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+      "targets": [ { "expr": "sum(power_grid_w)", "refId": "A" } ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "自家消費率 (発電中のみ)",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 0, "min": 0, "max": 100,
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] } }, "overrides": [] },
+      "targets": [ { "expr": "100 * (sum(power_generation_w) - clamp_min(-sum(power_grid_w), 0)) / sum(power_generation_w)", "refId": "A" } ]
+    },
+
+    {
+      "id": 10, "type": "timeseries", "title": "発電と消費",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "watt", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 15 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(power_generation_w)", "legendFormat": "発電", "refId": "A" },
+        { "expr": "sum(power_generation_w) + sum(power_grid_w)", "legendFormat": "総消費", "refId": "B" },
+        { "expr": "clamp_min(sum(power_grid_w), 0)", "legendFormat": "買電", "refId": "C" },
+        { "expr": "clamp_min(-sum(power_grid_w), 0)", "legendFormat": "売電", "refId": "D" }
+      ]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "回路別消費電力 (スタック)",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "watt", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 0, "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [ { "expr": "power_circuit_watts > 0", "legendFormat": "回路{{circuit}}", "refId": "A" } ]
+    },
+
+    {
+      "id": 20, "type": "timeseries", "title": "エアコン消費電力",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "watt", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [ { "expr": "appliance_power_w{type=\"aircon\"}", "legendFormat": "{{location}}", "refId": "A" } ]
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "エアコン温度 (室温/外気温/設定)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "celsius", "decimals": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1 } }, "overrides": [] },
+      "targets": [
+        { "expr": "appliance_room_temp", "legendFormat": "室温 {{location}}", "refId": "A" },
+        { "expr": "appliance_outdoor_temp", "legendFormat": "外気温 {{location}}", "refId": "B" },
+        { "expr": "appliance_setpoint", "legendFormat": "設定 {{location}}", "refId": "C" }
+      ]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "エコキュート (消費電力と残湯量)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "watt", "min": 0,
+        "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "残湯量" },
+            "properties": [
+              { "id": "unit", "value": "litre" },
+              { "id": "custom.axisPlacement", "value": "right" } ] }
+        ] },
+      "targets": [
+        { "expr": "appliance_power_w{type=\"ecocute\"}", "legendFormat": "消費電力", "refId": "A" },
+        { "expr": "appliance_tank_l", "legendFormat": "残湯量", "refId": "B" }
+      ]
+    },
+
+    {
+      "id": 30, "type": "timeseries", "title": "日別の発電・買電・売電 (kWh)",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "kwatth", "decimals": 1, "min": 0,
+        "custom": { "drawStyle": "bars", "fillOpacity": 80, "barAlignment": -1 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(increase(power_generation_total_kwh[1d]))", "legendFormat": "発電", "refId": "A", "interval": "1d" },
+        { "expr": "sum(increase(power_buy_total_kwh[1d]))", "legendFormat": "買電", "refId": "B", "interval": "1d" },
+        { "expr": "sum(increase(power_sell_total_kwh[1d]))", "legendFormat": "売電", "refId": "C", "interval": "1d" }
+      ]
+    }
+  ]
+}

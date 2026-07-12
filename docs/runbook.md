@@ -17,7 +17,8 @@
 | --- | --- |
 | ホスト | `raspi4-homeserver.local`(Mac からは ssh エイリアス `homeserver`、ユーザー `homepi`) |
 | タイムゾーン | **Asia/Tokyo (JST)**(2026-07-09 に Europe/London から変更) |
-| コレクター | `switchbot.service`: `/opt/homeserver` で `uv run sb run --interval 60 --mode ble --ble-scan-timeout 20` |
+| コレクター(温湿度) | `switchbot.service`: `/opt/homeserver` で `uv run sb run --interval 60 --mode ble --ble-scan-timeout 20` |
+| コレクター(電力) | `echonet.service`: `uv run el run --interval 60`。ECHONET Lite (UDP 3610) で太陽光/分電盤(回路別28ch)/エアコン2台/エコキュートを読む。対象は `.env` の `ECHONET_DEVICES` |
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
 | 可視化 | Grafana、ダッシュボード uid `home-climate`(プロビジョニング管理 → `deploy/grafana/`) |
@@ -32,6 +33,10 @@
 - ラベル: `location`(例 `home-1F-寝室`。プレフィックスは `.env` の `LOCATION_PREFIX`)、
   `device_id`(BLE MAC または SwitchBot deviceId)、`type`(meter / co2 / hub2)
 - SwitchBot の Cloud API deviceId は **BLE MAC のコロン抜き**(例 `B0E9FE54488F` = `B0:E9:FE:54:48:8F`)
+- 電力系メトリクス: `power_generation_w`(太陽光)、`power_grid_w`(主幹、正=買電/負=売電)、
+  `power_{buy,sell,generation}_total_kwh`(積算)、`power_circuit_watts{circuit="01".."28"}`(回路別)、
+  `appliance_{power_w,room_temp,outdoor_temp,setpoint,on,tank_l}`(エアコン/エコキュート)。
+  総消費は保存せず `sum(power_generation_w) + sum(power_grid_w)` で導出する
 - サーバー監視系のメトリクス: `node_*`(node_exporter)、`rpi_*`(スロットリング、textfile)、
   `collector_watchdog_*`(発火回数・データ鮮度、textfile)、`vm_*`(VictoriaMetrics 自身)。
   システムメトリクスは約800系列 × 60秒間隔で**年間 1GB 弱**消費する。ディスクが厳しくなったら
@@ -114,6 +119,12 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 - **SwitchBot BLE デコードの罠**: 湿度バイトの bit7 は「本体の表示単位が°F」を示すだけで、
   値は常に摂氏(過去に華氏変換して −4℃ を記録するバグがあった → commit `6a563e3`)。
   Hub 2 は manufacturer data の bytes 13–15 に温湿度、バッテリー報告なし(→ commit `5f8e452`)。
+- **ECHONET Lite の罠**: 多くの機器は応答を送信元ポートではなく **UDP 3610 宛て**に返すため、
+  クライアントは必ず 3610 に bind する(一時ポートで待つと全機器が「無応答」に見える。
+  2026-07-12 の調査で実際に誤診した)。AiSEG2 はコントローラ専業で ECHONET の照会には応答しない。
+  エアコンの設定温度 (EPC 0xB3) は自動運転時 0xFD を返すので**符号なし**で解釈すること
+  (符号付きだと -3℃ に化ける)。回路別の名称は ECHONET では取れないため、
+  Grafana 側の凡例マッピングか AiSEG2 の Web 画面(回路名設定)を参照する
 - **bleak の鉄則: `asyncio.run()` はプロセスで1回だけ**。ループ内で毎回呼ぶと D-Bus 接続が
   サイクルごとにリークし、約6時間で dbus-daemon の UID あたり256接続上限に達して
   BLE が全滅する(→ commit `feaf656` で修正。長時間の定期スキャンは

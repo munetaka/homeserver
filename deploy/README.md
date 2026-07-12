@@ -9,6 +9,7 @@
 | --- | --- |
 | `systemd/victoria-metrics.service` | `/etc/systemd/system/victoria-metrics.service` |
 | `systemd/switchbot.service` | `/etc/systemd/system/switchbot.service` |
+| `systemd/echonet.service` | `/etc/systemd/system/echonet.service` |
 | `systemd/collector-watchdog.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/vm-backup.service` / `.timer` | `/etc/systemd/system/` |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
