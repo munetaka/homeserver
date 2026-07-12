@@ -198,7 +198,7 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "発電と消費 (過去は30分平均、直近94日+)",
+      "title": "電力収支: 自家消費+買電(上) / 売電(下)",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -208,37 +208,173 @@
       "fieldConfig": {
         "defaults": {
           "unit": "watt",
-          "min": 0,
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
-            "fillOpacity": 15
+            "fillOpacity": 55,
+            "stacking": {
+              "mode": "normal"
+            }
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "自家消費"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "買電"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "売電"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "発電"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "総消費"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
-          "expr": "sum(power_generation_w) or (sum(energy_30min_kwh{kind=\"generation\"}) * 2000)",
-          "legendFormat": "発電",
-          "refId": "A"
+          "refId": "A",
+          "legendFormat": "自家消費",
+          "expr": "(sum(power_generation_w) - clamp_min(-sum(power_grid_w), 0)) or ((sum(energy_30min_kwh{kind=\"generation\"}) - sum(energy_30min_kwh{kind=\"sell\"})) * 2000)"
         },
         {
-          "expr": "(sum(power_generation_w) + sum(power_grid_w)) or (sum(energy_30min_kwh{kind=\"consumption\"}) * 2000)",
-          "legendFormat": "総消費",
-          "refId": "B"
-        },
-        {
-          "expr": "clamp_min(sum(power_grid_w), 0) or (sum(energy_30min_kwh{kind=\"buy\"}) * 2000)",
+          "refId": "B",
           "legendFormat": "買電",
-          "refId": "C"
+          "expr": "clamp_min(sum(power_grid_w), 0) or (sum(energy_30min_kwh{kind=\"buy\"}) * 2000)"
         },
         {
-          "expr": "clamp_min(-sum(power_grid_w), 0) or (sum(energy_30min_kwh{kind=\"sell\"}) * 2000)",
+          "refId": "C",
           "legendFormat": "売電",
-          "refId": "D"
+          "expr": "clamp_min(-sum(power_grid_w), 0) or (sum(energy_30min_kwh{kind=\"sell\"}) * 2000)"
+        },
+        {
+          "refId": "D",
+          "legendFormat": "発電",
+          "expr": "sum(power_generation_w) or (sum(energy_30min_kwh{kind=\"generation\"}) * 2000)"
+        },
+        {
+          "refId": "E",
+          "legendFormat": "総消費",
+          "expr": "(sum(power_generation_w) + sum(power_grid_w)) or (sum(energy_30min_kwh{kind=\"consumption\"}) * 2000)"
         }
-      ]
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
     },
     {
       "id": 11,
@@ -397,7 +533,7 @@
     {
       "id": 30,
       "type": "timeseries",
-      "title": "日別: 買電(上)・売電(下)・発電(線) — 2025-06からの履歴込み",
+      "title": "日別: 自家消費+買電(上) / 売電(下) — 2025-06からの履歴込み",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -411,27 +547,40 @@
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
-            "barAlignment": -1
+            "barAlignment": -1,
+            "stacking": {
+              "mode": "normal"
+            }
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byName",
-              "options": "発電"
+              "options": "自家消費"
             },
             "properties": [
               {
-                "id": "custom.drawStyle",
-                "value": "line"
-              },
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "買電"
+            },
+            "properties": [
               {
-                "id": "custom.lineWidth",
-                "value": 2
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
               }
             ]
           },
@@ -442,8 +591,89 @@
             },
             "properties": [
               {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
                 "id": "custom.transform",
                 "value": "negative-Y"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "発電"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "総消費"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
               }
             ]
           }
@@ -451,24 +681,41 @@
       },
       "targets": [
         {
-          "expr": "sum(energy_day_kwh{kind=\"generation\"}) or sum(increase(power_generation_total_kwh[1d]))",
-          "legendFormat": "発電",
           "refId": "A",
-          "interval": "1d"
+          "legendFormat": "自家消費",
+          "interval": "1d",
+          "expr": "(sum(energy_day_kwh{kind=\"generation\"}) - sum(energy_day_kwh{kind=\"sell\"})) or (sum(increase(power_generation_total_kwh[1d])) - sum(increase(power_sell_total_kwh[1d])))"
         },
         {
-          "expr": "sum(energy_day_kwh{kind=\"buy\"}) or sum(increase(power_buy_total_kwh[1d]))",
-          "legendFormat": "買電",
           "refId": "B",
-          "interval": "1d"
+          "legendFormat": "買電",
+          "interval": "1d",
+          "expr": "sum(energy_day_kwh{kind=\"buy\"}) or sum(increase(power_buy_total_kwh[1d]))"
         },
         {
-          "expr": "sum(energy_day_kwh{kind=\"sell\"}) or sum(increase(power_sell_total_kwh[1d]))",
-          "legendFormat": "売電",
           "refId": "C",
-          "interval": "1d"
+          "legendFormat": "売電",
+          "interval": "1d",
+          "expr": "sum(energy_day_kwh{kind=\"sell\"}) or sum(increase(power_sell_total_kwh[1d]))"
+        },
+        {
+          "refId": "D",
+          "legendFormat": "発電",
+          "interval": "1d",
+          "expr": "sum(energy_day_kwh{kind=\"generation\"}) or sum(increase(power_generation_total_kwh[1d]))"
+        },
+        {
+          "refId": "E",
+          "legendFormat": "総消費",
+          "interval": "1d",
+          "expr": "sum(energy_day_kwh{kind=\"consumption\"}) or (sum(increase(power_generation_total_kwh[1d])) + sum(increase(power_buy_total_kwh[1d])) - sum(increase(power_sell_total_kwh[1d])))"
         }
-      ]
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
     }
   ]
 }
