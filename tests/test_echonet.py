@@ -156,6 +156,28 @@ class TestReaders:
         assert f == {"on": 1, "power_w": 100, "tank_l": 500}
 
 
+class TestCircuitConfig:
+    def test_parse_circuit_names(self):
+        names = echonet.parse_circuit_names("1=リビング, 11=冷蔵庫 ,27=IHクッキングヒーター")
+        assert names == {1: "リビング", 11: "冷蔵庫", 27: "IHクッキングヒーター"}
+        assert echonet.parse_circuit_names("") == {}
+
+    def test_parse_circuit_names_rejects_invalid(self):
+        with pytest.raises(ValueError):
+            echonet.parse_circuit_names("リビング")
+
+    def test_apply_circuit_config_names_and_excludes(self):
+        readings = [
+            Reading("power", {"location": "分電盤", "type": "powerboard"}, {"grid_w": 100}),
+            Reading("power_circuit", {"location": "分電盤", "circuit": "01"}, {"watts": 38}),
+            Reading("power_circuit", {"location": "分電盤", "circuit": "26"}, {"watts": 0}),
+        ]
+        out = echonet.apply_circuit_config(readings, {1: "リビング"}, {26, 28})
+        assert len(out) == 2  # 26 は除外
+        assert out[1].tags == {"location": "分電盤", "circuit": "01", "name": "リビング"}
+        assert out[0].measurement == "power"  # 回路以外は素通し
+
+
 class TestLineProtocol:
     def test_readings_to_lines_prefix_and_types(self):
         readings = [

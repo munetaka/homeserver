@@ -335,6 +335,38 @@ def collect_readings(client: EchonetClient, targets: list[ElTarget]) -> Tuple[Li
     return readings, errors
 
 
+def parse_circuit_names(spec: str) -> Dict[int, str]:
+    """``1=リビング,2=玄関ホール`` 形式の回路名設定をパースする。"""
+    names: Dict[int, str] = {}
+    for item in spec.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            raise ValueError(f"Invalid circuit name entry '{item}' (expected N=名称)")
+        ch, name = item.split("=", 1)
+        names[int(ch.strip())] = name.strip()
+    return names
+
+
+def apply_circuit_config(
+    readings: List[Reading],
+    names: Dict[int, str],
+    exclude: set[int],
+) -> List[Reading]:
+    """回路別 Reading に名称タグを付け、除外指定 (未使用回路) を落とす。"""
+    result: List[Reading] = []
+    for r in readings:
+        if r.measurement == "power_circuit":
+            ch = int(r.tags.get("circuit", "0"))
+            if ch in exclude:
+                continue
+            if ch in names:
+                r.tags["name"] = names[ch]
+        result.append(r)
+    return result
+
+
 # ---------------------------------------------------------------------
 # line protocol / 出力
 # ---------------------------------------------------------------------
@@ -371,7 +403,18 @@ def _load_env() -> dict:
         "REQUEST_TIMEOUT_S": float(os.getenv("REQUEST_TIMEOUT_S", "10")),
         "ECHONET_DEVICES": os.getenv("ECHONET_DEVICES", ""),
         "ECHONET_TIMEOUT_S": float(os.getenv("ECHONET_TIMEOUT_S", "3")),
+        "ECHONET_CIRCUIT_NAMES": os.getenv("ECHONET_CIRCUIT_NAMES", ""),
+        "ECHONET_CIRCUIT_EXCLUDE": os.getenv("ECHONET_CIRCUIT_EXCLUDE", ""),
     }
+
+
+def _circuit_config(env: dict) -> Tuple[Dict[int, str], set[int]]:
+    try:
+        names = parse_circuit_names(env["ECHONET_CIRCUIT_NAMES"])
+        exclude = {int(s) for s in env["ECHONET_CIRCUIT_EXCLUDE"].split(",") if s.strip()}
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    return names, exclude
 
 
 def _write_influx(lines: List[str], env: dict) -> None:
@@ -443,11 +486,13 @@ def scan(
 def push():
     env = _load_env()
     targets = _env_targets(env)
+    names, exclude = _circuit_config(env)
     client = EchonetClient(timeout_s=env["ECHONET_TIMEOUT_S"])
     try:
         readings, errors = collect_readings(client, targets)
     finally:
         client.close()
+    readings = apply_circuit_config(readings, names, exclude)
     for e in errors:
         typer.echo(f"warn: {e}")
     lines = readings_to_lines(readings, env["LOCATION_PREFIX"], int(time.time() * 1000))
@@ -464,6 +509,7 @@ def run(
 ):
     env = _load_env()
     targets = _env_targets(env)
+    names, exclude = _circuit_config(env)
     client = EchonetClient(timeout_s=env["ECHONET_TIMEOUT_S"])
     typer.echo(f"Starting loop: every {interval}s, {len(targets)} devices (Ctrl+C to stop)")
     consecutive_errors = 0
@@ -471,6 +517,7 @@ def run(
         while True:
             try:
                 readings, errors = collect_readings(client, targets)
+                readings = apply_circuit_config(readings, names, exclude)
                 for e in errors:
                     typer.echo(f"warn: {e}")
                 lines = readings_to_lines(readings, env["LOCATION_PREFIX"], int(time.time() * 1000))
