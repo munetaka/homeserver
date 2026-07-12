@@ -178,6 +178,64 @@ class TestCircuitConfig:
         assert out[0].measurement == "power"  # 回路以外は素通し
 
 
+HISTORY_HEADER = (
+    "計測日時,太陽光発電(創蓄パワコン),蓄電池充電,蓄電池放電,主幹買電,主幹売電,"
+    "太陽光発電(PV1),太陽光発電(PV2),HP消費電力量,燃料電池発電電力量,EV充電電力量,EV放電電力量,"
+    "無効1,無効2,無効3,無効4,無効5,無効6,無効7,無効8,"
+    "リビング,玄関ホール,浴室・洗面所,洋室1・2,寝室,洋室3,2F トイレ・洗面所,台所コンセント,台所コンセント,"
+    "レンジフード,冷蔵庫,洗濯機,階段下・コンセント,リビング専用コンセント,洋室3 専用コンセント,寝室エアコン,"
+    "2Fエアコン,洋室1 エアコン,洋室2 エアコン,HEMS電源,24H換気,食洗機,予備,電気自動車,エコキュート,"
+    "分岐26,IHクッキングヒーター,分岐28,"
+    "無効9,無効10,無効11,無効12,無効13,無効14,無効15,無効16,無効17,無効18,無効19,無効20,無効21,無効22,無効23,"
+    "使用電力量,ガス使用量,水使用量,お湯使用量,燃料電池ガス使用量,補助熱源ガス使用量,燃料電池お湯使用量,"
+    "補助熱源お湯使用量,燃料電池排熱回収量"
+).split(",")
+
+HISTORY_ROW = (
+    "202607120000+0900,-,-,-,277,0,0,-,-,-,-,-,-,-,-,-,-,-,-,-,"
+    "58,7,5,0,0,8,15,0,0,0,47,0,0,5,0,6,82,0,0,24,12,0,0,0,0,0,0,0,"
+    "-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,277,-,-,-,-,-,-,-,-"
+).split(",")
+
+
+class TestHistoryImport:
+    def test_header_summary_and_circuits(self):
+        summary, circuits = echonet.parse_history_header(HISTORY_HEADER)
+        assert set(summary.values()) == {"generation", "buy", "sell", "consumption"}
+        assert len(circuits) == 28
+        chans = {ch: name for ch, name in circuits.values()}
+        assert chans[1] == "リビング"
+        assert chans[8] == "台所コンセント"
+        assert chans[9] == "台所コンセント2"  # 同名の2つ目は連番でライブ収集と揃える
+        assert chans[27] == "IHクッキングヒーター"
+
+    def test_timestamp_30min_and_day(self):
+        from datetime import datetime, timedelta, timezone
+        jst = timezone(timedelta(hours=9))
+        ts = echonet.parse_history_timestamp("202607120030+0900")
+        assert ts == int(datetime(2026, 7, 12, 0, 30, tzinfo=jst).timestamp() * 1000)
+        ts_day = echonet.parse_history_timestamp("20250616")
+        assert ts_day == int(datetime(2025, 6, 16, tzinfo=jst).timestamp() * 1000)
+
+    def test_row_to_readings_real_row(self):
+        summary, circuits = echonet.parse_history_header(HISTORY_HEADER)
+        readings = echonet.history_row_to_readings(
+            HISTORY_ROW, "30min", summary, circuits, exclude={26, 28})
+        by_kind = {r.tags["kind"]: r.fields["kwh"] for r in readings if r.measurement == "energy_30min"}
+        assert by_kind == {"generation": 0.0, "buy": 0.277, "sell": 0.0, "consumption": 0.277}
+        circ = {r.tags["name"]: r.fields["kwh"] for r in readings if r.measurement == "energy_30min_circuit"}
+        assert circ["リビング"] == pytest.approx(0.058)
+        assert circ["冷蔵庫"] == pytest.approx(0.047)
+        assert circ["2Fエアコン"] == pytest.approx(0.082)
+        assert "分岐26" not in circ and "分岐28" not in circ
+        assert len(circ) == 26
+
+    def test_row_skips_missing_values(self):
+        summary, circuits = echonet.parse_history_header(HISTORY_HEADER)
+        row = ["20250601"] + ["-"] * (len(HISTORY_HEADER) - 1)
+        assert echonet.history_row_to_readings(row, "day", summary, circuits, set()) == []
+
+
 class TestLineProtocol:
     def test_readings_to_lines_prefix_and_types(self):
         readings = [

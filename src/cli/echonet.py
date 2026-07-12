@@ -335,6 +335,78 @@ def collect_readings(client: EchonetClient, targets: list[ElTarget]) -> Tuple[Li
     return readings, errors
 
 
+# ---------------------------------------------------------------------
+# AiSEG2 履歴CSV (rireki_*.zip) のインポート
+# ---------------------------------------------------------------------
+
+# 30minhistory_rc / dayhistory_rc のサマリー列 -> kind タグ
+HISTORY_SUMMARY_COLUMNS = {
+    "太陽光発電(PV1)": "generation",
+    "主幹買電": "buy",
+    "主幹売電": "sell",
+    "使用電力量": "consumption",
+}
+
+
+def parse_history_header(header: List[str]) -> Tuple[Dict[int, str], Dict[int, Tuple[int, str]]]:
+    """履歴CSVのヘッダーから (サマリー列 idx->kind, 回路列 idx->(回路番号, 名称)) を得る。
+
+    回路列は「無効8」と「無効9」に挟まれた28列で、並び順が分1〜分28に対応する。
+    同名回路 (台所コンセント×2 等) は2つ目以降に連番を付け、ライブ収集の命名と揃える。
+    """
+    summary = {i: HISTORY_SUMMARY_COLUMNS[h] for i, h in enumerate(header) if h in HISTORY_SUMMARY_COLUMNS}
+    i8, i9 = header.index("無効8"), header.index("無効9")
+    circuits: Dict[int, Tuple[int, str]] = {}
+    seen: Dict[str, int] = {}
+    for ch, idx in enumerate(range(i8 + 1, i9), start=1):
+        name = header[idx].replace(" ", "").replace("・", "・")
+        seen[name] = seen.get(name, 0) + 1
+        if seen[name] > 1:
+            name = f"{name}{seen[name]}"
+        circuits[idx] = (ch, name)
+    return summary, circuits
+
+
+def parse_history_timestamp(value: str) -> int:
+    """計測日時 (``202607120030+0900`` または日単位の ``20250616``) を epoch ms へ。"""
+    from datetime import datetime, timedelta, timezone
+
+    value = value.strip()
+    if len(value) == 8:  # 日単位: JST の日付のみ
+        dt = datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone(timedelta(hours=9)))
+    else:
+        dt = datetime.strptime(value, "%Y%m%d%H%M%z")
+    return int(dt.timestamp() * 1000)
+
+
+def history_row_to_readings(
+    row: List[str],
+    period: str,
+    summary: Dict[int, str],
+    circuits: Dict[int, Tuple[int, str]],
+    exclude: set[int],
+) -> List[Reading]:
+    """履歴CSVの1行を Reading 群へ (値は Wh -> kWh)。'-' は欠測としてスキップ。
+
+    period は "30min" | "day"。メトリクス名は energy_30min_kwh / energy_day_kwh 等になる。
+    """
+    readings: List[Reading] = []
+    for idx, kind in summary.items():
+        if idx < len(row) and row[idx] not in ("-", ""):
+            readings.append(
+                Reading(f"energy_{period}", {"kind": kind}, {"kwh": int(row[idx]) / 1000.0})
+            )
+    for idx, (ch, name) in circuits.items():
+        if ch in exclude:
+            continue
+        if idx < len(row) and row[idx] not in ("-", ""):
+            readings.append(
+                Reading(f"energy_{period}_circuit", {"circuit": f"{ch:02d}", "name": name},
+                        {"kwh": int(row[idx]) / 1000.0})
+            )
+    return readings
+
+
 def parse_circuit_names(spec: str) -> Dict[int, str]:
     """``1=リビング,2=玄関ホール`` 形式の回路名設定をパースする。"""
     names: Dict[int, str] = {}
@@ -501,6 +573,54 @@ def push():
         raise typer.Exit(code=1)
     _write_influx(lines, env)
     typer.echo(f"wrote {len(lines)} points")
+
+
+@app.command(name="import-history", help="AiSEG2 の履歴CSV (rireki_* を展開したディレクトリ) を一括インポートします。")
+def import_history(
+    directory: Annotated[str, typer.Argument(help="rireki を展開したディレクトリ")],
+    max_day: Annotated[str, typer.Option("--max-day", help="日単位データはこの日付(YYYYMMDD)まで取り込む(ライブ収集との二重計上防止)")] = "",
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="書き込まずに件数だけ表示")] = False,
+    batch_size: Annotated[int, typer.Option("--batch-size")] = 5000,
+):
+    import glob as globmod
+
+    env = _load_env()
+    _, exclude = _circuit_config(env)
+    prefix = env["LOCATION_PREFIX"]
+
+    total = 0
+    pending: List[str] = []
+
+    def flush():
+        nonlocal pending, total
+        if pending and not dry_run:
+            _write_influx(pending, env)
+        total += len(pending)
+        pending = []
+
+    for pattern, period in (("30minhistory_rc_*.csv", "30min"), ("dayhistory_rc_*.csv", "day")):
+        for path in sorted(globmod.glob(os.path.join(directory, pattern))):
+            text = open(path, "rb").read().decode("utf-8-sig")
+            lines = text.splitlines()
+            if not lines:
+                continue
+            summary, circuits = parse_history_header(lines[0].split(","))
+            for raw in lines[1:]:
+                row = raw.split(",")
+                if not row or row[0] in ("-", ""):
+                    continue
+                if period == "day" and max_day and row[0][:8] > max_day:
+                    continue
+                # CSVの計測日時は区間の開始。ライブ系の increase[1d] 等と揃うよう
+                # 区間の終端タイムスタンプで記録する
+                ts_ms = parse_history_timestamp(row[0])
+                ts_ms += (1800 if period == "30min" else 86400) * 1000
+                readings = history_row_to_readings(row, period, summary, circuits, exclude)
+                pending.extend(readings_to_lines(readings, prefix, ts_ms))
+                if len(pending) >= batch_size:
+                    flush()
+    flush()
+    typer.echo(f"{'(dry-run) ' if dry_run else ''}imported {total} points")
 
 
 @app.command(help="指定間隔で読み取りを繰り返します (systemd 常駐用)。")
