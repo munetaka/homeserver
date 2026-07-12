@@ -50,7 +50,8 @@
       "targets": [
         {
           "expr": "sum(power_generation_w)",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ]
     },
@@ -99,7 +100,8 @@
       "targets": [
         {
           "expr": "sum(power_generation_w) + sum(power_grid_w)",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ]
     },
@@ -144,7 +146,8 @@
       "targets": [
         {
           "expr": "sum(power_grid_w)",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ]
     },
@@ -187,14 +190,15 @@
       "targets": [
         {
           "expr": "100 * (sum(power_generation_w) - clamp_min(-sum(power_grid_w), 0)) / sum(power_generation_w)",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ]
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "発電と消費",
+      "title": "発電と消費 (過去は30分平均、直近94日+)",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -215,22 +219,22 @@
       },
       "targets": [
         {
-          "expr": "sum(power_generation_w)",
+          "expr": "sum(power_generation_w) or (sum(energy_30min_kwh{kind=\"generation\"}) * 2000)",
           "legendFormat": "発電",
           "refId": "A"
         },
         {
-          "expr": "sum(power_generation_w) + sum(power_grid_w)",
+          "expr": "(sum(power_generation_w) + sum(power_grid_w)) or (sum(energy_30min_kwh{kind=\"consumption\"}) * 2000)",
           "legendFormat": "総消費",
           "refId": "B"
         },
         {
-          "expr": "clamp_min(sum(power_grid_w), 0)",
+          "expr": "clamp_min(sum(power_grid_w), 0) or (sum(energy_30min_kwh{kind=\"buy\"}) * 2000)",
           "legendFormat": "買電",
           "refId": "C"
         },
         {
-          "expr": "clamp_min(-sum(power_grid_w), 0)",
+          "expr": "clamp_min(-sum(power_grid_w), 0) or (sum(energy_30min_kwh{kind=\"sell\"}) * 2000)",
           "legendFormat": "売電",
           "refId": "D"
         }
@@ -239,7 +243,7 @@
     {
       "id": 11,
       "type": "timeseries",
-      "title": "回路別消費電力 (スタック)",
+      "title": "回路別消費電力 (スタック、過去は30分平均)",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -263,7 +267,7 @@
       },
       "targets": [
         {
-          "expr": "power_circuit_watts > 0",
+          "expr": "(sum by (circuit, name) (power_circuit_watts) or (sum by (circuit, name) (energy_30min_circuit_kwh) * 2000)) > 0",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
