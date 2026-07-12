@@ -397,7 +397,7 @@
     {
       "id": 30,
       "type": "timeseries",
-      "title": "日別の発電・買電・売電 (kWh) — 2025-06 からの履歴込み",
+      "title": "日別: 買電(上)・売電(下)・発電(線) — 2025-06からの履歴込み",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -408,14 +408,46 @@
         "defaults": {
           "unit": "kwatth",
           "decimals": 1,
-          "min": 0,
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
             "barAlignment": -1
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "発電"
+            },
+            "properties": [
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "売電"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
