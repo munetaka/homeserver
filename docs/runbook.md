@@ -37,6 +37,12 @@
   `power_{buy,sell,generation}_total_kwh`(積算)、`power_circuit_watts{circuit="01".."28"}`(回路別)、
   `appliance_{power_w,room_temp,outdoor_temp,setpoint,on,tank_l}`(エアコン/エコキュート)。
   総消費は保存せず `sum(power_generation_w) + sum(power_grid_w)` で導出する
+- 電力の過去データ: `energy_{30min,day}_kwh{kind=generation|buy|sell|consumption}` と
+  `energy_{30min,day}_circuit_kwh{circuit,name}`。AiSEG2 の履歴CSV(rireki_*.zip)を
+  `el import-history` で 2026-07-12 に一括投入したもの(日次は稼働開始 2025-06-16〜2026-07-11、
+  30分値は直近94日分 = AiSEG2 本体の保持上限)。タイムスタンプは**区間の終端**。
+  再実行する場合は `--max-day` でライブ収集との二重計上を防ぐこと。
+  AiSEG2 の時間単位履歴は約94日で上書き消失するため、追加救出は不可能(以降はライブ収集が上位互換)
 - サーバー監視系のメトリクス: `node_*`(node_exporter)、`rpi_*`(スロットリング、textfile)、
   `collector_watchdog_*`(発火回数・データ鮮度、textfile)、`vm_*`(VictoriaMetrics 自身)。
   システムメトリクスは約800系列 × 60秒間隔で**年間 1GB 弱**消費する。ディスクが厳しくなったら

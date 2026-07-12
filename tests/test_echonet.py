@@ -1,7 +1,7 @@
 """ECHONET Lite モジュールのテスト。hex フィクスチャは 2026-07-12 に
 実機 (Panasonic MKN7350S1 / ダイキン機器) から取得した実応答。"""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -234,6 +234,56 @@ class TestHistoryImport:
         summary, circuits = echonet.parse_history_header(HISTORY_HEADER)
         row = ["20250601"] + ["-"] * (len(HISTORY_HEADER) - 1)
         assert echonet.history_row_to_readings(row, "day", summary, circuits, set()) == []
+
+
+class TestImportHistoryCommand:
+    def _write_fixture(self, tmp_path):
+        header = ",".join(HISTORY_HEADER)
+        row30 = ",".join(HISTORY_ROW)
+        day_row = HISTORY_ROW[:]
+        day_row[0] = "20260710"
+        day_row_future = HISTORY_ROW[:]
+        day_row_future[0] = "20260712"
+        (tmp_path / "30minhistory_rc_20260712.csv").write_text(
+            header + "\n" + row30 + "\n", encoding="utf-8-sig")
+        (tmp_path / "dayhistory_rc_202607.csv").write_text(
+            header + "\n" + ",".join(day_row) + "\n" + ",".join(day_row_future) + "\n",
+            encoding="utf-8-sig")
+
+    def test_import_history_writes_and_respects_max_day(self, tmp_path):
+        from typer.testing import CliRunner
+        self._write_fixture(tmp_path)
+        env = {
+            "INFLUX_URL": "http://vm:8428", "INFLUX_BUCKET_OR_DB": "db", "INFLUX_TOKEN": "t",
+            "LOCATION_PREFIX": "home-", "REQUEST_TIMEOUT_S": 10.0,
+            "ECHONET_DEVICES": "", "ECHONET_TIMEOUT_S": 3.0,
+            "ECHONET_CIRCUIT_NAMES": "", "ECHONET_CIRCUIT_EXCLUDE": "26,28",
+        }
+        with patch("cli.echonet._load_env", return_value=env), \
+             patch("cli.echonet._write_influx") as write:
+            result = CliRunner().invoke(
+                echonet.app, ["import-history", str(tmp_path), "--max-day", "20260711"])
+        assert result.exit_code == 0, result.stdout
+        # 30分行(30点) + 日行1件のみ(20260712はmax-dayで除外) = 60点
+        assert "imported 60 points" in result.stdout
+        lines = [l for call in write.call_args_list for l in call.args[0]]
+        assert any(l.startswith("energy_30min,kind=buy kwh=0.277") for l in lines)
+        assert any(l.startswith("energy_day_circuit,circuit=11,name=冷蔵庫") for l in lines)
+        assert not any(",circuit=26" in l or ",circuit=28" in l for l in lines)
+
+    def test_import_history_dry_run_writes_nothing(self, tmp_path):
+        from typer.testing import CliRunner
+        self._write_fixture(tmp_path)
+        with patch("cli.echonet._load_env", return_value={
+            "INFLUX_URL": "", "INFLUX_BUCKET_OR_DB": "", "INFLUX_TOKEN": "",
+            "LOCATION_PREFIX": "", "REQUEST_TIMEOUT_S": 10.0,
+            "ECHONET_DEVICES": "", "ECHONET_TIMEOUT_S": 3.0,
+            "ECHONET_CIRCUIT_NAMES": "", "ECHONET_CIRCUIT_EXCLUDE": "",
+        }), patch("cli.echonet._write_influx") as write:
+            result = CliRunner().invoke(
+                echonet.app, ["import-history", str(tmp_path), "--dry-run"])
+        assert result.exit_code == 0
+        write.assert_not_called()
 
 
 class TestLineProtocol:

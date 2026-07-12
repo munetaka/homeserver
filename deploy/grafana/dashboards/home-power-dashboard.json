@@ -393,7 +393,7 @@
     {
       "id": 30,
       "type": "timeseries",
-      "title": "日別の発電・買電・売電 (kWh)",
+      "title": "日別の発電・買電・売電 (kWh) — 2025-06 からの履歴込み",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -415,19 +415,19 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(power_generation_total_kwh[1d]))",
+          "expr": "sum(energy_day_kwh{kind=\"generation\"}) or sum(increase(power_generation_total_kwh[1d]))",
           "legendFormat": "発電",
           "refId": "A",
           "interval": "1d"
         },
         {
-          "expr": "sum(increase(power_buy_total_kwh[1d]))",
+          "expr": "sum(energy_day_kwh{kind=\"buy\"}) or sum(increase(power_buy_total_kwh[1d]))",
           "legendFormat": "買電",
           "refId": "B",
           "interval": "1d"
         },
         {
-          "expr": "sum(increase(power_sell_total_kwh[1d]))",
+          "expr": "sum(energy_day_kwh{kind=\"sell\"}) or sum(increase(power_sell_total_kwh[1d]))",
           "legendFormat": "売電",
           "refId": "C",
           "interval": "1d"
