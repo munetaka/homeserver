@@ -611,10 +611,12 @@ def import_history(
                     continue
                 if period == "day" and max_day and row[0][:8] > max_day:
                     continue
-                # CSVの計測日時は区間の開始。ライブ系の increase[1d] 等と揃うよう
-                # 区間の終端タイムスタンプで記録する
                 ts_ms = parse_history_timestamp(row[0])
-                ts_ms += (1800 if period == "30min" else 86400) * 1000
+                if period == "30min":
+                    # 30分値は区間終端で記録 (ラインが「その時刻までの実績」と読める)
+                    ts_ms += 1800 * 1000
+                # 日次は「その日の00:00」のまま記録する。ツールチップの日付=その日の
+                # 合計になり、パネル側は右寄せバー + increase[1d] offset -1d で揃える
                 readings = history_row_to_readings(row, period, summary, circuits, exclude)
                 pending.extend(readings_to_lines(readings, prefix, ts_ms))
                 if len(pending) >= batch_size:
