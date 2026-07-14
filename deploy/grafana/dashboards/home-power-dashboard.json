@@ -274,14 +274,6 @@
             },
             "properties": [
               {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": false,
-                  "tooltip": false
-                }
-              },
-              {
                 "id": "custom.stacking",
                 "value": {
                   "mode": "none"
@@ -311,14 +303,6 @@
             },
             "properties": [
               {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": false,
-                  "tooltip": false
-                }
-              },
-              {
                 "id": "custom.stacking",
                 "value": {
                   "mode": "none"
@@ -337,6 +321,32 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "自家消費",
+                  "買電",
+                  "売電"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
                 }
               }
             ]
@@ -610,14 +620,6 @@
             },
             "properties": [
               {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": false,
-                  "tooltip": false
-                }
-              },
-              {
                 "id": "custom.stacking",
                 "value": {
                   "mode": "none"
@@ -647,14 +649,6 @@
             },
             "properties": [
               {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": false,
-                  "tooltip": false
-                }
-              },
-              {
                 "id": "custom.stacking",
                 "value": {
                   "mode": "none"
@@ -673,6 +667,32 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "自家消費",
+                  "買電",
+                  "売電"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
                 }
               }
             ]
