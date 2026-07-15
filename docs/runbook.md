@@ -62,11 +62,26 @@ SwitchBot アプリの絶対湿度と当システムの値が 1% 弱ずれるの
 湿度が整数(±0.5%RH)、②アプリは増強係数なしの Magnus 系と推定、の合算で説明でき、
 センサー自体の精度(±1.8%RH ≈ 絶対湿度 0.4 g/m³)より十分小さい。
 
-## センサー一覧(2026-07-06 時点)
+## 機器一覧(最終更新 2026-07-15)
 
+**BLE 温湿度センサー(SwitchBot)— 全11台稼働中**:
 WoIOSensor(防水温湿度計)×9、MeterPro(CO2)×1(1F-寝室)、Hub 2 ×1(1F-ユーティリティ)。
-`屋外-玄関`(F2:B2:02:46:55:20)は電池切れ or BLE 圏外で不達(要現地確認)。
-デバイスの追加・変更は `/opt/homeserver/.env` の `SWITCHBOT_BLE_DEVICES`(書式 `MAC[@type][=alias]`、type は meter/co2/hub2)を編集して `sudo systemctl restart switchbot.service`。
+`屋外-玄関`(F2:B2:02:46:55:20)は 2025-10〜2026-07 の長期電池切れの後、
+2026-07-14 に電池交換で完全復旧(受信率も他と同水準)。
+デバイスの追加・変更は `/opt/homeserver/.env` の `SWITCHBOT_BLE_DEVICES`(書式 `MAC[@type][=alias]`、
+type は meter/co2/hub2)を編集して `sudo systemctl restart switchbot.service`。
+
+**ECHONET Lite 機器(電力系)**:
+
+| IP | 機器 | 収集クラス |
+| --- | --- | --- |
+| 192.168.11.10 | エネルギー計測ユニット MKN7350S1 | 太陽光発電 + 分電盤メータリング(回路別28ch) |
+| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力・室温・外気温・設定温度(自己申告、100W/1℃刻み) |
+| 192.168.11.169 | ダイキン エコキュート | 消費電力・残湯量(50L刻み) |
+| 192.168.11.216 | AiSEG2(コントローラ) | 収集対象外(ECHONET照会に応答しない) |
+
+IP は DHCP 予約で固定を推奨。追加・変更は `.env` の `ECHONET_DEVICES` を編集して
+`sudo systemctl restart echonet.service`。
 
 ## 障害対応手順
 
