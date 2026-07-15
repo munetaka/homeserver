@@ -114,6 +114,20 @@ uv run sb compare --pair B0E9FE54488F=b0:e9:fe:54:48:8f@co2 --pair F2B202064A8B=
 - `--pair` follows `deviceId=BLE_MAC[@type]`. If `@type` is omitted, the CLI guesses based on the device type returned by the API.
 - Output shows API values, BLE values, and deltas for temperature, humidity, CO2, and battery when both sources reported data.
 
+## Power collection CLI (`el`)
+ECHONET Lite (UDP 3610) 経由で太陽光・分電盤(回路別)・エアコン・エコキュートを収集する第2のコレクターです。
+
+```bash
+uv run el scan --subnet 192.168.11   # LAN上の ECHONET Lite 機器を発見
+uv run el push                        # 1回収集して書き込み
+uv run el run --interval 60           # 常駐ループ (echonet.service が使用)
+uv run el import-history <dir> --max-day YYYYMMDD   # AiSEG2 履歴CSVの一括取込
+```
+
+対象機器は `ECHONET_DEVICES`(`IP@type[=alias]` のカンマ区切り、type: solar/powerboard/aircon/ecocute)、
+回路名は `ECHONET_CIRCUIT_NAMES`、未使用回路の除外は `ECHONET_CIRCUIT_EXCLUDE` で設定します。
+詳細は [deploy/README.md](deploy/README.md) と [docs/runbook.md](docs/runbook.md) を参照。
+
 ## Raspberry Pi サービス運用
 
 本番構成(VictoriaMetrics + Grafana + コレクター + watchdog + pCloud バックアップ)の

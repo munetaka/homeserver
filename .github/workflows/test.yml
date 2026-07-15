@@ -24,4 +24,4 @@ jobs:
             uv run coverage report --format=markdown --fail-under=0 >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Lint deploy scripts
-        run: shellcheck deploy/bin/*.sh
+        run: shellcheck deploy/bin/*.sh scripts/*.sh

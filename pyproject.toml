@@ -1,7 +1,7 @@
 [project]
 name = "homeserver"
 version = "0.1.0"
-description = "Add your description here"
+description = "SwitchBot/ECHONET Lite home telemetry collectors for Raspberry Pi (VictoriaMetrics + Grafana)"
 readme = "README.md"
 authors = [
     { name = "Munetaka Mizutani", email = "mu.mizutani@gmail.com" }
