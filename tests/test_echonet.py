@@ -286,6 +286,71 @@ class TestImportHistoryCommand:
         write.assert_not_called()
 
 
+EL_ENV = {
+    "INFLUX_URL": "http://vm:8428",
+    "LOCATION_PREFIX": "home-",
+    "REQUEST_TIMEOUT_S": 10.0,
+    "ECHONET_DEVICES": "192.168.11.10@solar=太陽光",
+    "ECHONET_TIMEOUT_S": 3.0,
+    "ECHONET_CIRCUIT_NAMES": "",
+    "ECHONET_CIRCUIT_EXCLUDE": "",
+}
+
+
+class TestRunCommand:
+    def _reading(self):
+        return Reading("power", {"location": "太陽光", "type": "solar"}, {"generation_w": 500})
+
+    def test_run_writes_then_stops(self):
+        from typer.testing import CliRunner
+        effects = [([self._reading()], []), KeyboardInterrupt()]
+        with patch("cli.echonet._load_env", return_value=dict(EL_ENV)), \
+             patch("cli.echonet.EchonetClient"), \
+             patch("cli.echonet.collect_readings", side_effect=effects), \
+             patch("cli.echonet._write_influx") as write, \
+             patch("cli.echonet.time.sleep"):
+            result = CliRunner().invoke(echonet.app, ["run", "--interval", "60"])
+        assert result.exit_code == 0
+        assert "wrote 1 points" in result.stdout
+        assert "stopped" in result.stdout
+        write.assert_called_once()
+
+    def test_run_self_exits_after_consecutive_failures(self):
+        from typer.testing import CliRunner
+        with patch("cli.echonet._load_env", return_value=dict(EL_ENV)), \
+             patch("cli.echonet.EchonetClient"), \
+             patch("cli.echonet.collect_readings", side_effect=RuntimeError("net down")), \
+             patch("cli.echonet._write_influx") as write, \
+             patch("cli.echonet.time.sleep"):
+            result = CliRunner().invoke(echonet.app, ["run", "--interval", "60"])
+        assert result.exit_code == 1
+        assert "exiting so systemd can restart the service" in result.stdout
+        write.assert_not_called()
+
+    def test_run_counts_empty_cycles_as_errors(self):
+        from typer.testing import CliRunner
+        with patch("cli.echonet._load_env", return_value=dict(EL_ENV)), \
+             patch("cli.echonet.EchonetClient"), \
+             patch("cli.echonet.collect_readings", return_value=([], ["太陽光 (192.168.11.10): timeout"])), \
+             patch("cli.echonet._write_influx"), \
+             patch("cli.echonet.time.sleep"):
+            result = CliRunner().invoke(echonet.app, ["run", "--interval", "60"])
+        assert result.exit_code == 1
+        assert "no datapoints" in result.stdout
+        assert "warn: 太陽光" in result.stdout
+
+    def test_push_no_datapoints_exits_nonzero(self):
+        from typer.testing import CliRunner
+        with patch("cli.echonet._load_env", return_value=dict(EL_ENV)), \
+             patch("cli.echonet.EchonetClient"), \
+             patch("cli.echonet.collect_readings", return_value=([], [])), \
+             patch("cli.echonet._write_influx") as write:
+            result = CliRunner().invoke(echonet.app, ["push"])
+        assert result.exit_code == 1
+        assert "no datapoints" in result.stdout
+        write.assert_not_called()
+
+
 class TestLineProtocol:
     def test_readings_to_lines_prefix_and_types(self):
         readings = [

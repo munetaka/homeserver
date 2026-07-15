@@ -469,8 +469,6 @@ def _load_env() -> dict:
     load_dotenv()
     return {
         "INFLUX_URL": os.getenv("INFLUX_URL", "http://localhost:8428"),
-        "INFLUX_BUCKET_OR_DB": os.getenv("INFLUX_BUCKET_OR_DB", "home"),
-        "INFLUX_TOKEN": os.getenv("INFLUX_TOKEN", "none"),
         "LOCATION_PREFIX": os.getenv("LOCATION_PREFIX", ""),
         "REQUEST_TIMEOUT_S": float(os.getenv("REQUEST_TIMEOUT_S", "10")),
         "ECHONET_DEVICES": os.getenv("ECHONET_DEVICES", ""),
@@ -490,11 +488,13 @@ def _circuit_config(env: dict) -> Tuple[Dict[int, str], set[int]]:
 
 
 def _write_influx(lines: List[str], env: dict) -> None:
-    url = f"{env['INFLUX_URL']}/api/v2/write"
-    params = {"bucket": env["INFLUX_BUCKET_OR_DB"], "precision": "ns"}
-    headers = {"Authorization": f"Token {env['INFLUX_TOKEN']}", "Content-Type": "text/plain"}
-    r = requests.post(url, params=params, data="\n".join(lines).encode("utf-8"),
-                      headers=headers, timeout=env["REQUEST_TIMEOUT_S"])
+    r = requests.post(
+        f"{env['INFLUX_URL']}/api/v2/write",
+        params={"precision": "ns"},
+        data="\n".join(lines).encode("utf-8"),
+        headers={"Content-Type": "text/plain"},
+        timeout=env["REQUEST_TIMEOUT_S"],
+    )
     r.raise_for_status()
 
 

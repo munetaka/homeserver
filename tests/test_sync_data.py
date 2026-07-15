@@ -38,15 +38,16 @@ class TestAbsHumidity:
 
 
 class TestLoadEnv:
-    def test_bucket_and_token_default_for_victoriametrics(self):
-        # VictoriaMetrics 運用では bucket/token を書かなくても起動できる
+    def test_removed_legacy_keys_are_gone(self):
+        # Cloud API / InfluxDB 認証まわりは 2026-07-16 に撤去済み
         import os
         with patch.dict(os.environ, {}, clear=True), \
              patch("cli.sync_data.load_dotenv"):
             env = sync_data._load_env()
-        assert env["INFLUX_BUCKET_OR_DB"] == "home"
-        assert env["INFLUX_TOKEN"] == "none"
-        assert env["SWITCHBOT_TOKEN"] is None  # Cloud API 系は既定値なし(必要時のみ)
+        assert env["INFLUX_URL"] == "http://localhost:8428"
+        for key in ("SWITCHBOT_TOKEN", "SWITCHBOT_SECRET", "SWITCHBOT_MODE",
+                    "INFLUX_BUCKET_OR_DB", "INFLUX_TOKEN", "USE_V3_NATIVE"):
+            assert key not in env
 
 
 class TestSyncDataHelpers:
@@ -78,8 +79,6 @@ class TestSyncDataHelpers:
         with patch("cli.sync_data.collect_ble_readings", return_value=[reading]) as mock_collect:
             lines = sync_data._collect_once(
                 location_prefix="",
-                mode="ble",
-                timeout_s=5.0,
                 ef_model="none",
                 ble_targets=[],
                 ble_scan_timeout_s=3.0,
@@ -119,73 +118,16 @@ class TestSyncDataCli:
         assert "model=meter" in result.stdout
         assert "code=0x54" in result.stdout
 
-    def test_compare_command(self):
-        api_reading = SwitchBotReading(
-            device_id="B0E9FE54488F",
-            name="MeterPro",
-            device_type="co2",
-            temperature=25.0,
-            humidity=55.0,
-            co2=650,
-            battery=80,
-        )
-        ble_reading = SwitchBotReading(
-            device_id="b0:e9:fe:54:48:8f",
-            name="B0E9FE54488F",
-            device_type="co2",
-            temperature=24.8,
-            humidity=54.0,
-            co2=645,
-            battery=79,
-        )
-        with patch("cli.sync_data._load_env", return_value={
-            "SWITCHBOT_TOKEN": "token",
-            "SWITCHBOT_SECRET": "secret",
-            "REQUEST_TIMEOUT_S": 10.0,
-            "SWITCHBOT_BLE_SCAN_TIMEOUT": 5.0,
-        }), patch("cli.sync_data._get_devices", return_value=[
-            {"deviceId": "B0E9FE54488F", "deviceType": "MeterPro(CO2)", "deviceName": "CO2 Meter"},
-        ]), patch("cli.sync_data._collect_api_readings", return_value=[api_reading]), patch("cli.sync_data.collect_ble_readings", return_value=[ble_reading]):
-            result = runner.invoke(
-                sync_data.app,
-                ["compare", "--pair", "B0E9FE54488F=b0:e9:fe:54:48:8f"],
-            )
-        assert result.exit_code == 0
-        assert "B0E9FE54488F (CO2 Meter)" in result.stdout
-        assert "API: temp=25.0C, hum=55%" in result.stdout
-        assert "BLE: temp=24.8C, hum=54%" in result.stdout
-        assert "Δco2=-5" in result.stdout
-
-    def test_devices_command_prints_status(self):
-        with patch("cli.sync_data._load_env", return_value={
-            "SWITCHBOT_TOKEN": "token",
-            "SWITCHBOT_SECRET": "secret",
-            "REQUEST_TIMEOUT_S": 10.0,
-        }), patch("cli.sync_data._get_devices", return_value=[
-            {"deviceId": "dev1", "deviceType": "Meter", "deviceName": "Room"},
-        ]), patch("cli.sync_data._get_status", return_value={"temperature": 24.0, "humidity": 40, "battery": 95}):
-            result = runner.invoke(sync_data.app, ["devices"])
-
-        assert result.exit_code == 0
-        assert "Room (type=Meter, id=dev1)" in result.stdout
-        assert "battery: 95" in result.stdout
-        assert "humidity: 40" in result.stdout
 
 
 class TestRunLoopSelfExit:
     """BLE/D-Bus が壊れたままエラーループし続けた障害 (2026-07-06) の再発防止。"""
 
     BLE_ENV = {
-        "SWITCHBOT_TOKEN": None,
-        "SWITCHBOT_SECRET": None,
         "INFLUX_URL": "http://localhost:8428",
-        "INFLUX_BUCKET_OR_DB": "db",
-        "INFLUX_TOKEN": "influx-token",
         "LOCATION_PREFIX": "",
         "REQUEST_TIMEOUT_S": 10.0,
-        "USE_V3_NATIVE": False,
         "EF_MODEL": "none",
-        "SWITCHBOT_MODE": "ble",
         "SWITCHBOT_BLE_DEVICES": "",
         "SWITCHBOT_BLE_SCAN_TIMEOUT": 5.0,
     }
