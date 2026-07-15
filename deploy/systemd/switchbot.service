@@ -6,7 +6,7 @@ Wants=network-online.target bluetooth.service
 [Service]
 Type=simple
 WorkingDirectory=/opt/homeserver
-ExecStart=/home/homepi/.local/bin/uv run sb run --interval 60 --mode ble --ble-scan-timeout 20
+ExecStart=/home/homepi/.local/bin/uv run sb run --interval 60 --ble-scan-timeout 20
 Restart=on-failure
 RestartSec=30
 User=homepi

@@ -65,9 +65,13 @@ fi
 if echo "$changed_paths" | grep -q '^deploy/systemd/'; then
   sudo systemctl daemon-reload
 fi
-if echo "$changed_paths" | grep -q '^deploy/systemd/victoria-metrics\.service'; then
-  restart="$restart victoria-metrics.service"
-fi
+# ユニットファイルが変わった常駐サービスはそのサービス自身を再起動する
+for unit in $(echo "$changed_paths" | grep -oE '^deploy/systemd/[a-z-]+\.service' | xargs -n1 basename 2>/dev/null); do
+  case "$unit" in
+    switchbot.service|echonet.service|victoria-metrics.service)
+      restart="$restart $unit" ;;
+  esac
+done
 if [ -n "$restart" ]; then
   for s in $restart; do sudo systemctl restart "$s"; done
   echo "restarted:$restart"
