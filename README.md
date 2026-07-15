@@ -6,11 +6,15 @@
 - **`sb`** — SwitchBot 温湿度/CO2センサー(BLE アドバタイズ直接受信)
 - **`el`** — ECHONET Lite 経由の電力系(太陽光発電・分電盤の回路別消費・エアコン・エコキュート)
 
-```
-[SwitchBotセンサー×11] --BLE--> sb (switchbot.service) --\
-                                                          +--> VictoriaMetrics --> Grafana
-[太陽光/分電盤/家電]  --ECHONET Lite--> el (echonet.service) --/        |
-                                                    watchdog が鮮度監視 / 毎晩 pCloud へバックアップ
+```mermaid
+flowchart LR
+    S["SwitchBot センサー ×11"] -- BLE --> SB["sb<br>(switchbot.service)"]
+    P["太陽光 / 分電盤 / 家電"] -- "ECHONET Lite" --> EL["el<br>(echonet.service)"]
+    SB --> VM[("VictoriaMetrics")]
+    EL --> VM
+    VM --> G["Grafana"]
+    WD["watchdog"] -. 鮮度監視 .-> VM
+    VM -. 毎晩バックアップ .-> PC[("pCloud")]
 ```
 
 ## Features
