@@ -116,8 +116,9 @@ def _load_env():
         "SWITCHBOT_TOKEN": os.getenv("SWITCHBOT_TOKEN"),
         "SWITCHBOT_SECRET": os.getenv("SWITCHBOT_SECRET"),
         "INFLUX_URL": os.getenv("INFLUX_URL", "http://localhost:8086"),
-        "INFLUX_BUCKET_OR_DB": os.getenv("INFLUX_BUCKET_OR_DB"),
-        "INFLUX_TOKEN": os.getenv("INFLUX_TOKEN"),
+        # VictoriaMetrics は bucket/token を無視するため既定値で足りる (InfluxDB 使用時のみ設定)
+        "INFLUX_BUCKET_OR_DB": os.getenv("INFLUX_BUCKET_OR_DB", "home"),
+        "INFLUX_TOKEN": os.getenv("INFLUX_TOKEN", "none"),
         "LOCATION_PREFIX": os.getenv("LOCATION_PREFIX", ""),
         "REQUEST_TIMEOUT_S": float(os.getenv("REQUEST_TIMEOUT_S", "10")),
         "USE_V3_NATIVE": os.getenv("USE_V3_NATIVE", "false").lower() == "true",
@@ -521,9 +522,6 @@ def push(
     if ef_model == "none":
         ef_model = env["EF_MODEL"]
 
-    _require(bucket_or_db, "INFLUX_BUCKET_OR_DB")
-    _require(token_influx, "INFLUX_TOKEN")
-
     ble_specs = list(ble_device or [])
     if not ble_specs and env["SWITCHBOT_BLE_DEVICES"]:
         ble_specs = [s.strip() for s in env["SWITCHBOT_BLE_DEVICES"].split(",") if s.strip()]
@@ -743,9 +741,6 @@ def run(
     use_v3_native = use_v3_native or env["USE_V3_NATIVE"]
     if ef_model == "none":
         ef_model = env["EF_MODEL"]
-
-    _require(bucket_or_db, "INFLUX_BUCKET_OR_DB")
-    _require(token_influx, "INFLUX_TOKEN")
 
     ble_specs = list(ble_device or [])
     if not ble_specs and env["SWITCHBOT_BLE_DEVICES"]:

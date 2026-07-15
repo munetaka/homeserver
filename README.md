@@ -53,11 +53,7 @@
 These environment variables are read by the CLI (values shown below are examples):
 
 ```dotenv
-SWITCHBOT_TOKEN=xxxxxxxxxxxxxxxxxxxx
-SWITCHBOT_SECRET=yyyyyyyyyyyyyyyyyyyy
-INFLUX_URL=http://localhost:8086
-INFLUX_BUCKET_OR_DB=home-sensors
-INFLUX_TOKEN=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+INFLUX_URL=http://localhost:8428
 LOCATION_PREFIX=home-
 REQUEST_TIMEOUT_S=10
 USE_V3_NATIVE=false
@@ -73,11 +69,11 @@ ECHONET_CIRCUIT_EXCLUDE=26,28
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `SWITCHBOT_TOKEN` | Cloud mode | SwitchBot API token (`App -> Profile -> Preferences`). |
-| `SWITCHBOT_SECRET` | Cloud mode | SwitchBot API secret. |
 | `INFLUX_URL` | yes | Base URL of the line-protocol endpoint (VictoriaMetrics: `http://host:8428`, InfluxDB: `http://host:8086`). |
-| `INFLUX_BUCKET_OR_DB` | yes | InfluxDB bucket (v2) or database (v3). Ignored by VictoriaMetrics (still must be set). |
-| `INFLUX_TOKEN` | yes | InfluxDB API token. Ignored by VictoriaMetrics (still must be set). |
+| `INFLUX_BUCKET_OR_DB` | InfluxDB のみ | InfluxDB bucket (v2) or database (v3)。VictoriaMetrics では不要(既定 `home`)。 |
+| `INFLUX_TOKEN` | InfluxDB のみ | InfluxDB API token。VictoriaMetrics では不要(既定 `none`)。 |
+| `SWITCHBOT_TOKEN` | Cloud API のみ | SwitchBot API token (`App -> Profile -> Preferences`)。`sb devices` / `sb compare` / `--mode api` で必要。BLE 収集だけなら不要。 |
+| `SWITCHBOT_SECRET` | Cloud API のみ | SwitchBot API secret(同上)。 |
 | `LOCATION_PREFIX` | optional | Prepended to the `location` tag written to Influx. |
 | `REQUEST_TIMEOUT_S` | optional | HTTP timeout in seconds (default `10`). |
 | `USE_V3_NATIVE` | optional | `true` to use `/api/v3/write_lp` (default `false`). |
@@ -216,4 +212,4 @@ hardware-bound BLE discovery excluded via `pragma: no cover`. CI
 ## Notes
 - BLE decoding currently covers Meter, Meter Plus, CO2 meters (including outdoor versions), and Hub 2 (temperature/humidity only; no battery since it is mains powered). Unrecognized payloads fall back to `type=unknown` with a `code_0x..` label.
 - For reliable BLE results, increase `--ble-scan-timeout` or `SWITCHBOT_BLE_SCAN_TIMEOUT`, especially for devices with long advertising intervals.
-- Ensure the SwitchBot REST token and secret are present even when primarily using BLE; the CLI uses them for commands that interact with the Cloud API.
+- SwitchBot のトークン/シークレットが必要なのは Cloud API を使うコマンド(`sb devices` / `sb compare` / `--mode api`)だけです。BLE 収集のみの運用では設定不要です。

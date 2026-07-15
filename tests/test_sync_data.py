@@ -37,6 +37,18 @@ class TestAbsHumidity:
         assert ah < 60.0, f"temp={temp}, rh={rh}, ah={ah}"
 
 
+class TestLoadEnv:
+    def test_bucket_and_token_default_for_victoriametrics(self):
+        # VictoriaMetrics 運用では bucket/token を書かなくても起動できる
+        import os
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("cli.sync_data.load_dotenv"):
+            env = sync_data._load_env()
+        assert env["INFLUX_BUCKET_OR_DB"] == "home"
+        assert env["INFLUX_TOKEN"] == "none"
+        assert env["SWITCHBOT_TOKEN"] is None  # Cloud API 系は既定値なし(必要時のみ)
+
+
 class TestSyncDataHelpers:
     def test_reading_to_line_includes_abs_and_battery(self):
         reading = SwitchBotReading(

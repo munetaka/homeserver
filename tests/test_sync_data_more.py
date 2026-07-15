@@ -135,10 +135,16 @@ class TestPushCommand:
             result = runner.invoke(sync_data.app, ["push", "--ble-device", "not-a-mac"])
         assert result.exit_code == 2
 
-    def test_missing_bucket_is_bad_parameter(self):
-        with patch("cli.sync_data._load_env", return_value=env_with(INFLUX_BUCKET_OR_DB=None)):
-            result = runner.invoke(sync_data.app, ["push"])
-        assert result.exit_code == 2
+    def test_bucket_and_token_are_optional(self):
+        # VictoriaMetrics は bucket/token を無視するので未設定でも起動できる (2026-07-15緩和)
+        with patch("cli.sync_data._load_env",
+                   return_value=env_with(INFLUX_BUCKET_OR_DB="home", INFLUX_TOKEN="none",
+                                         SWITCHBOT_MODE="ble")), \
+             patch("cli.sync_data.collect_ble_readings", return_value=[make_reading()]), \
+             patch("cli.sync_data._write_influx") as write:
+            result = runner.invoke(sync_data.app, ["push", "--ble-device", "AA:BB:CC:DD:EE:FF"])
+        assert result.exit_code == 0
+        write.assert_called_once()
 
     def test_api_mode_requires_switchbot_token(self):
         with patch("cli.sync_data._load_env", return_value=env_with(SWITCHBOT_TOKEN=None)):
@@ -501,8 +507,8 @@ class TestLoadEnvDefaults:
         assert env["SWITCHBOT_TOKEN"] is None
         assert env["SWITCHBOT_SECRET"] is None
         assert env["INFLUX_URL"] == "http://localhost:8086"
-        assert env["INFLUX_BUCKET_OR_DB"] is None
-        assert env["INFLUX_TOKEN"] is None
+        assert env["INFLUX_BUCKET_OR_DB"] == "home"
+        assert env["INFLUX_TOKEN"] == "none"
         assert env["LOCATION_PREFIX"] == ""
         assert env["REQUEST_TIMEOUT_S"] == 10.0
         assert env["USE_V3_NATIVE"] is False
