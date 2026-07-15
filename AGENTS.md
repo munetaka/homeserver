@@ -9,8 +9,8 @@
   Tailscale に自動フォールバック。sudo はパスワード不要)
 - 本番のリポジトリは Pi の `/opt/homeserver`(git checkout)。systemd サービス
   `switchbot.service`(BLE温湿度)/ `echonet.service`(電力)がここから動いている
-- 実行時設定は `/opt/homeserver/.env`(**git 管理外**。SwitchBot トークン、BLE/ECHONET デバイス一覧、
-  回路名。夜間の pCloud バックアップに含まれる)
+- 実行時設定は `/opt/homeserver/.env`(**git 管理外**。書き込み先URL、BLE/ECHONET デバイス一覧、
+  回路名。キーは .env.example 参照。夜間の pCloud バックアップに含まれる)
 
 ## テスト
 
