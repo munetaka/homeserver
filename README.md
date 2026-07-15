@@ -1,17 +1,42 @@
 # homeserver
 
-Typer CLI for collecting SwitchBot environmental sensor metrics via Cloud API or BLE and writing them into a time-series database over InfluxDB line protocol. The production deployment writes to **VictoriaMetrics** (InfluxDB v2 API compatible); plain InfluxDB v2/v3 also works.
+自宅の温湿度・CO2・電力を Raspberry Pi 4 で収集し、VictoriaMetrics に蓄積して Grafana で可視化する
+ホームテレメトリシステム。コレクターは2系統あります:
+
+- **`sb`** — SwitchBot 温湿度/CO2センサー(BLE アドバタイズ直接受信、Cloud API も対応)
+- **`el`** — ECHONET Lite 経由の電力系(太陽光発電・分電盤の回路別消費・エアコン・エコキュート)
+
+```
+[SwitchBotセンサー×11] --BLE--> sb (switchbot.service) --\
+                                                          +--> VictoriaMetrics --> Grafana
+[太陽光/分電盤/家電]  --ECHONET Lite--> el (echonet.service) --/        |
+                                                    watchdog が鮮度監視 / 毎晩 pCloud へバックアップ
+```
 
 ## Features
-- Works with SwitchBot Cloud API v1.1 and direct BLE advertisements to avoid API rate limits.
-- Decodes Meter, Meter Plus, CO2 meter, and Hub 2 payloads (temperature, humidity, CO2, battery).
-- Supports single push or continuous loop writes in InfluxDB line protocol (VictoriaMetrics / InfluxDB v2 / v3).
-- Provides discovery utilities: list devices from the API, scan BLE radios, and compare API versus BLE readings.
+- SwitchBot: BLE アドバタイズを直接デコード(Meter / Meter Plus / CO2 Meter / Hub 2)して
+  API レート制限を回避。温度+湿度から絶対湿度も計算して保存
+- ECHONET Lite: 太陽光の瞬時/積算発電、分電盤の主幹(買電/売電)と回路別28chの瞬時電力、
+  エアコン(消費電力・室温・外気温)、エコキュート(消費電力・残湯量)。AiSEG2 履歴CSVの
+  過去データ一括取込(`el import-history`)にも対応
+- 耐障害設計: 連続エラー時のプロセス自己再起動 + データ鮮度 watchdog(詳細は runbook)
 
 ## Documentation
 - [docs/runbook.md](docs/runbook.md) — 本番環境(ラズパイ4)の構成・障害対応手順・ハマりどころ集
 - [docs/incidents/](docs/incidents/) — 障害記録(ポストモーテム)
 - [deploy/README.md](deploy/README.md) — systemd ユニット・スクリプト・Grafana 設定の原本と再構築手順
+- [AGENTS.md](AGENTS.md) — エージェント向け作業規約(デプロイ・ドキュメント更新の決まり)
+
+## Repository layout
+
+| パス | 内容 |
+| --- | --- |
+| `src/cli/` | コレクター実装(`sync_data.py` = sb、`echonet.py` = el、`switchbot_ble.py` = BLEデコード) |
+| `deploy/` | Pi 上の成果物の原本(systemd / スクリプト / Grafana 設定) |
+| `docs/` | runbook と障害記録 |
+| `scripts/` | 運用スクリプト(`deploy-to-pi.sh`、`health-check.sh`) |
+| `.claude/skills/` | Claude Code 用スキル(`/deploy-pi`、`/homeserver-health`) |
+| `tests/` | pytest スイート(実機ペイロードのフィクスチャ入り) |
 
 ## Requirements
 - Python 3.13 or later.
@@ -40,6 +65,10 @@ EF_MODEL=none
 SWITCHBOT_MODE=ble
 SWITCHBOT_BLE_DEVICES=B0:E9:FE:54:48:8F@co2=bedroom,F2:B2:02:06:4A:8B@meter=toilet
 SWITCHBOT_BLE_SCAN_TIMEOUT=15
+ECHONET_DEVICES=192.168.11.10@solar=太陽光,192.168.11.10@powerboard=分電盤,192.168.11.12@aircon=エアコンA
+ECHONET_TIMEOUT_S=3
+ECHONET_CIRCUIT_NAMES=1=リビング,2=玄関ホール,11=冷蔵庫
+ECHONET_CIRCUIT_EXCLUDE=26,28
 ```
 
 | Variable | Required | Description |
@@ -56,6 +85,10 @@ SWITCHBOT_BLE_SCAN_TIMEOUT=15
 | `SWITCHBOT_MODE` | optional | Default acquisition mode (`api` or `ble`, default `api`). |
 | `SWITCHBOT_BLE_DEVICES` | optional | Comma-separated `MAC[@type][=alias]` specs used by `push` and `run`. |
 | `SWITCHBOT_BLE_SCAN_TIMEOUT` | optional | BLE scan timeout in seconds (default `5`). |
+| `ECHONET_DEVICES` | el のみ | Comma-separated `IP@type[=alias]`。type: `solar` / `powerboard` / `aircon` / `ecocute`。 |
+| `ECHONET_TIMEOUT_S` | optional | ECHONET Lite 応答タイムアウト秒(default `3`)。 |
+| `ECHONET_CIRCUIT_NAMES` | optional | 分電盤の回路番号→名称(`1=リビング,...`)。`name` タグとして付与。 |
+| `ECHONET_CIRCUIT_EXCLUDE` | optional | 収集から除外する回路番号(未使用回路)。 |
 
 `@type` accepts values such as `meter`, `co2`, `hub2`, or the raw code label (`code_0x35`) if the device is unknown.
 
@@ -172,7 +205,13 @@ Existing unittest-style tests run under pytest as-is; write new tests in pytest
 style. Coverage settings live in `pyproject.toml` (`[tool.coverage.*]`), with
 hardware-bound BLE discovery excluded via `pragma: no cover`. CI
 (`.github/workflows/test.yml`) runs the same suite plus shellcheck for
-`deploy/bin/*.sh` on every push.
+`deploy/bin/*.sh` and `scripts/*.sh` on every push.
+
+## Operations
+- デプロイ: `scripts/deploy-to-pi.sh` — main の HEAD を Pi へ同期し、成果物の配置と
+  サービス再起動まで自動判定(Claude Code では `/deploy-pi`)
+- ヘルスチェック: `scripts/health-check.sh` — サービス・データ鮮度・ディスク・バックアップの
+  一括確認(Claude Code では `/homeserver-health`)
 
 ## Notes
 - BLE decoding currently covers Meter, Meter Plus, CO2 meters (including outdoor versions), and Hub 2 (temperature/humidity only; no battery since it is mains powered). Unrecognized payloads fall back to `type=unknown` with a `code_0x..` label.

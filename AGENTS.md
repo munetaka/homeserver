@@ -44,6 +44,7 @@
 
 | 変更の種類 | 更新先 |
 | --- | --- |
+| CLI コマンド・環境変数・セットアップ手順・構成概観の変化 | README.md(冒頭の説明/Repository layout/Configuration 表/CLI 節) |
 | 構成・サービス・機器・メトリクスの追加/変更 | docs/runbook.md(該当節と「機器一覧」の最終更新日) |
 | 運用手順やハマりどころの発見 | docs/runbook.md の Tips |
 | データ欠損・誤データを伴う障害、重要バグの根本原因判明 | docs/incidents/YYYY-MM-DD-*.md を新規作成(既存2件の形式を踏襲)。既知障害の続報は該当ファイルへ追記 |
