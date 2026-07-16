@@ -1,0 +1,10 @@
+[Unit]
+Description=Compute electricity cost metrics from daily energy
+After=victoria-metrics.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homeserver
+ExecStart=/home/homepi/.local/bin/uv run el cost-update
+User=homepi
+Group=homepi

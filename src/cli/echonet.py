@@ -625,6 +625,32 @@ def import_history(
     typer.echo(f"{'(dry-run) ' if dry_run else ''}imported {total} points")
 
 
+@app.command(name="cost-update", help="日次kWhを電気料金(円)に換算して書き込みます (tariff.py の料金モデル)。")
+def cost_update(
+    since: Annotated[str, typer.Option("--since", help="この日付(YYYY-MM-DD)から再計算。省略時は40日前から")] = "",
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+):
+    from datetime import date, timedelta
+
+    from .cost import build_cost_lines, fetch_daily_kwh
+
+    env = _load_env()
+    today = date.today()  # Pi は JST 運用
+    start = date.fromisoformat(since) if since else today - timedelta(days=40)
+    daily = fetch_daily_kwh(env["INFLUX_URL"], start, today, env["REQUEST_TIMEOUT_S"])
+    lines, warnings = build_cost_lines(daily, today)
+    for w in warnings:
+        typer.echo(f"warn: {w}")
+    if not lines:
+        typer.echo("no cost datapoints")
+        raise typer.Exit(code=1)
+    if dry_run:
+        typer.echo(f"(dry-run) {len(lines)} points")
+        return
+    _write_influx(lines, env)
+    typer.echo(f"wrote {len(lines)} cost points ({start}〜{today})")
+
+
 @app.command(help="指定間隔で読み取りを繰り返します (systemd 常駐用)。")
 def run(
     interval: Annotated[int, typer.Option("--interval", "-i", min=10)] = 60,
