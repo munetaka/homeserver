@@ -736,6 +736,82 @@
           "mode": "multi"
         }
       }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "日別: 自家消費率 (発電のうち自家消費した割合) と自給率 (消費のうち発電で賄えた割合)",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "自家消費率"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "自給率"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "自家消費率",
+          "interval": "1d",
+          "expr": "(100 * (sum(energy_day_kwh{kind=\"generation\"}) - sum(energy_day_kwh{kind=\"sell\"})) / sum(energy_day_kwh{kind=\"generation\"})) or (100 * (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))) / sum(increase(power_generation_total_kwh[1d] offset -1d)))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "自給率",
+          "interval": "1d",
+          "expr": "(100 * (sum(energy_day_kwh{kind=\"generation\"}) - sum(energy_day_kwh{kind=\"sell\"})) / sum(energy_day_kwh{kind=\"consumption\"})) or (100 * (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))) / (sum(increase(power_generation_total_kwh[1d] offset -1d)) + sum(increase(power_buy_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))))"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
     }
   ]
 }

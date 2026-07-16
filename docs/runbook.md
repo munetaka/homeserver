@@ -36,7 +36,10 @@
 - 電力系メトリクス: `power_generation_w`(太陽光)、`power_grid_w`(主幹、正=買電/負=売電)、
   `power_{buy,sell,generation}_total_kwh`(積算)、`power_circuit_watts{circuit="01".."28"}`(回路別)、
   `appliance_{power_w,room_temp,outdoor_temp,setpoint,on,tank_l}`(エアコン/エコキュート)。
-  総消費は保存せず `sum(power_generation_w) + sum(power_grid_w)` で導出する
+  総消費は保存せず `sum(power_generation_w) + sum(power_grid_w)` で導出する。
+  比率系も保存せずダッシュボードで導出: **自家消費率** = (発電−売電)/発電(発電をどれだけ
+  使い切れたか)、**自給率** = (発電−売電)/総消費(消費をどれだけ発電で賄えたか)。
+  日次版は kWh の日合計同士で割る(瞬時比率の平均では正しい日次値にならない)
 - 電力の過去データ: `energy_{30min,day}_kwh{kind=generation|buy|sell|consumption}` と
   `energy_{30min,day}_circuit_kwh{circuit,name}`。AiSEG2 の履歴CSV(rireki_*.zip)を
   `el import-history` で 2026-07-12 に一括投入したもの(日次は稼働開始 2025-06-16〜2026-07-11、
