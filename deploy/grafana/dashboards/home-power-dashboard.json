@@ -1076,7 +1076,7 @@
           "expr": "sum by (kind) (cost_period_yen)",
           "legendFormat": "{{kind}}",
           "refId": "A",
-          "interval": "10d"
+          "interval": "1d"
         }
       ],
       "timeFrom": "1y"
