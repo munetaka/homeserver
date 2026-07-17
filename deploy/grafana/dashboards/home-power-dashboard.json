@@ -816,7 +816,7 @@
     {
       "id": 40,
       "type": "stat",
-      "title": "今期間の請求見込み (10日〆)",
+      "title": "請求見込み・円 (10日〆, 期間別)",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -833,7 +833,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyJPY",
+          "unit": "locale",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -851,14 +851,15 @@
         {
           "expr": "last_over_time(cost_period_yen{kind=\"bill\"}[45d])",
           "refId": "A",
-          "instant": true
+          "instant": true,
+          "legendFormat": "{{month}}"
         }
       ]
     },
     {
       "id": 41,
       "type": "stat",
-      "title": "今期間の節約額 (自家消費)",
+      "title": "節約額・円 (自家消費, 期間別)",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -875,7 +876,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyJPY",
+          "unit": "locale",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -893,14 +894,15 @@
         {
           "expr": "last_over_time(cost_period_yen{kind=\"savings\"}[45d])",
           "refId": "A",
-          "instant": true
+          "instant": true,
+          "legendFormat": "{{month}}"
         }
       ]
     },
     {
       "id": 42,
       "type": "stat",
-      "title": "今期間の売電収入",
+      "title": "売電収入・円 (期間別)",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -917,7 +919,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyJPY",
+          "unit": "locale",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -935,14 +937,15 @@
         {
           "expr": "last_over_time(cost_period_yen{kind=\"sell_income\"}[45d])",
           "refId": "A",
-          "instant": true
+          "instant": true,
+          "legendFormat": "{{month}}"
         }
       ]
     },
     {
       "id": 43,
       "type": "stat",
-      "title": "今期間の太陽光便益 (節約+売電)",
+      "title": "太陽光便益・円 (節約+売電, 期間別)",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -959,7 +962,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyJPY",
+          "unit": "locale",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -975,16 +978,17 @@
       },
       "targets": [
         {
-          "expr": "sum(last_over_time(cost_period_yen{kind=\"savings\"}[45d])) + sum(last_over_time(cost_period_yen{kind=\"sell_income\"}[45d]))",
+          "expr": "sum by (month) (last_over_time(cost_period_yen{kind=~\"savings|sell_income\"}[45d]))",
           "refId": "A",
-          "instant": true
+          "instant": true,
+          "legendFormat": "{{month}}"
         }
       ]
     },
     {
       "id": 44,
       "type": "timeseries",
-      "title": "検針期間別 (10日〆): 請求額・節約額・売電収入",
+      "title": "検針期間別 (10日〆): 請求額・節約額・売電収入 — 常に直近1年表示",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -998,7 +1002,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyJPY",
+          "unit": "locale",
           "decimals": 0,
           "min": 0,
           "custom": {
@@ -1071,9 +1075,11 @@
         {
           "expr": "sum by (kind) (cost_period_yen)",
           "legendFormat": "{{kind}}",
-          "refId": "A"
+          "refId": "A",
+          "interval": "10d"
         }
-      ]
+      ],
+      "timeFrom": "1y"
     }
   ]
 }
