@@ -452,7 +452,7 @@
     {
       "id": 21,
       "type": "timeseries",
-      "title": "エアコン温度 (室温/外気温/設定)",
+      "title": "エアコン温度・湿度 (実線=計測, 破線=設定)",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -468,7 +468,50 @@
             "lineWidth": 1
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/(湿度|除湿設定)/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/(除湿設定|設定)/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
@@ -485,6 +528,16 @@
           "expr": "appliance_setpoint",
           "legendFormat": "設定 {{location}}",
           "refId": "C"
+        },
+        {
+          "refId": "D",
+          "expr": "appliance_room_humidity",
+          "legendFormat": "湿度 {{location}}"
+        },
+        {
+          "refId": "E",
+          "expr": "appliance_dehum_setpoint_humidity",
+          "legendFormat": "除湿設定 {{location}}"
         }
       ]
     },
@@ -548,7 +601,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 29
       },
       "fieldConfig": {
         "defaults": {
@@ -746,7 +799,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 36
       },
       "fieldConfig": {
         "defaults": {
@@ -823,7 +876,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 29
+        "y": 36
       },
       "options": {
         "reduceOptions": {
@@ -866,7 +919,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 29
+        "y": 36
       },
       "options": {
         "reduceOptions": {
@@ -909,7 +962,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 29
+        "y": 36
       },
       "options": {
         "reduceOptions": {
@@ -952,7 +1005,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 29
+        "y": 36
       },
       "options": {
         "reduceOptions": {
@@ -995,7 +1048,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 41
       },
       "options": {
         "tooltip": {
@@ -1091,7 +1144,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 42
+        "y": 49
       },
       "options": {
         "reduceOptions": {
@@ -1134,7 +1187,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 42
+        "y": 49
       },
       "options": {
         "reduceOptions": {
@@ -1177,7 +1230,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 42
+        "y": 49
       },
       "options": {
         "reduceOptions": {
@@ -1220,7 +1273,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 42
+        "y": 49
       },
       "options": {
         "reduceOptions": {
@@ -1252,6 +1305,97 @@
           "expr": "sum by (year) (last_over_time(cost_year_yen{kind=~\"savings|sell_income\"}[3y]))",
           "legendFormat": "{{year}}年",
           "instant": true
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "type": "state-timeline",
+      "title": "エアコン運転モード",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "options": {
+        "showValue": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 70
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "自動",
+                  "color": "purple"
+                },
+                "2": {
+                  "text": "冷房",
+                  "color": "blue"
+                },
+                "3": {
+                  "text": "暖房",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "除湿",
+                  "color": "teal"
+                },
+                "5": {
+                  "text": "送風",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "max": 5,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "appliance_mode",
+          "legendFormat": "{{location}}"
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "type": "timeseries",
+      "title": "エアコン日次消費電力量 (積算カウンタ由来)",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 1,
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "barAlignment": 1
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "interval": "1d",
+          "expr": "sum by (location) (increase(appliance_energy_total_kwh[1d] offset -1d))",
+          "legendFormat": "{{location}}"
         }
       ]
     }

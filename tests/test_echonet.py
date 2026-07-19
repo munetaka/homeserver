@@ -149,6 +149,37 @@ class TestReaders:
         assert f["outdoor_temp"] == 28.0
         assert "setpoint" not in f
 
+    def test_read_aircon_extended_fields_real_values(self):
+        # 2026-07-20 の実機調査値 (エアコンA: 冷房26℃設定)
+        client = self._client({
+            0x80: b"\x30",
+            0x84: bytes.fromhex("00c8"),
+            0x85: bytes.fromhex("00120a5c"),  # 積算 1,182,300 (0.001kWh)
+            0xB0: b"\x42",                     # 冷房
+            0xB3: b"\x1a",
+            0xB4: b"\x32",                     # 除湿設定湿度 50%
+            0xBA: b"\x32",                     # 室内湿度 50%
+            0xBB: b"\x1a",
+            0xBE: b"\x1a",
+        })
+        readings = read_aircon(client, ElTarget("192.168.11.12", "aircon", "エアコンA"))
+        f = readings[0].fields
+        assert f["energy_total_kwh"] == pytest.approx(1182.3)
+        assert f["mode"] == 2
+        assert f["room_humidity"] == 50
+        assert f["dehum_setpoint_humidity"] == 50
+        assert f["setpoint"] == 26.0
+
+    def test_read_aircon_dehumidify_mode(self):
+        # エアコンB: 除湿モードは設定温度 0xFD (未定義) だが湿度系は取れる
+        client = self._client({0x80: b"\x30", 0xB0: b"\x44", 0xB3: b"\xfd",
+                               0xB4: b"\x32", 0xBA: b"\x2d"})
+        f = read_aircon(client, ElTarget("192.168.11.181", "aircon", "エアコンB"))[0].fields
+        assert f["mode"] == 4
+        assert "setpoint" not in f
+        assert f["room_humidity"] == 45
+        assert f["dehum_setpoint_humidity"] == 50
+
     def test_read_ecocute(self):
         client = self._client({0x80: b"\x30", 0x84: bytes.fromhex("0064"), 0xE1: bytes.fromhex("01f4")})
         readings = read_ecocute(client, ElTarget("192.168.11.169", "ecocute", "エコキュート"))

@@ -280,17 +280,40 @@ def read_powerboard(client: EchonetClient, target: ElTarget) -> List[Reading]:
     return readings
 
 
+# 運転モード (EPC 0xB0) -> 数値。Grafana 側の value mapping と対応させる
+AIRCON_MODES = {0x41: 1, 0x42: 2, 0x43: 3, 0x44: 4, 0x45: 5}  # 自動/冷房/暖房/除湿/送風
+
+
+def _percent(value: bytes) -> Optional[int]:
+    """湿度系 (符号なし1バイト, 0〜100%)。0xFD 等の範囲外は None。"""
+    if len(value) == 1 and value[0] <= 100:
+        return value[0]
+    return None
+
+
 def read_aircon(client: EchonetClient, target: ElTarget) -> List[Reading]:
-    props = client.get(target.ip, DEVICE_EOJ["aircon"], [0x80, 0x84, 0xB3, 0xBB, 0xBE])
+    props = client.get(
+        target.ip, DEVICE_EOJ["aircon"],
+        [0x80, 0x84, 0x85, 0xB0, 0xB3, 0xB4, 0xBA, 0xBB, 0xBE],
+    )
     fields: Dict[str, float | int] = {}
     if 0x80 in props:
         fields["on"] = 1 if props[0x80] == b"\x30" else 0
     if 0x84 in props and len(props[0x84]) == 2:
         fields["power_w"] = int.from_bytes(props[0x84], "big")
+    if 0x85 in props and len(props[0x85]) == 4:
+        # 積算消費電力量 (0.001kWh 単位)。瞬時値 (100W刻みの目安) と違い正確な差分が取れる
+        fields["energy_total_kwh"] = int.from_bytes(props[0x85], "big") * 0.001
+    if 0xB0 in props and len(props[0xB0]) == 1:
+        mode = AIRCON_MODES.get(props[0xB0][0])
+        if mode is not None:
+            fields["mode"] = mode
     for epc, name, decode in (
         (0xBB, "room_temp", _signed_byte_temp),
         (0xBE, "outdoor_temp", _signed_byte_temp),
         (0xB3, "setpoint", _setpoint_temp),
+        (0xBA, "room_humidity", _percent),
+        (0xB4, "dehum_setpoint_humidity", _percent),
     ):
         if epc in props:
             v = decode(props[epc])
