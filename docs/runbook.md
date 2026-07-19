@@ -42,9 +42,12 @@
   日次版は kWh の日合計同士で割る(瞬時比率の平均では正しい日次値にならない)
 - 電力の過去データ: `energy_{30min,day}_kwh{kind=generation|buy|sell|consumption}` と
   `energy_{30min,day}_circuit_kwh{circuit,name}`。AiSEG2 の履歴CSV(rireki_*.zip)を
-  `el import-history` で 2026-07-12 に一括投入したもの(日次は稼働開始 2025-06-16〜2026-07-11、
-  30分値は直近94日分 = AiSEG2 本体の保持上限)。タイムスタンプは**区間の終端**。
-  再実行する場合は `--max-day` でライブ収集との二重計上を防ぐこと。
+  `el import-history` で投入したもの。初回 2026-07-12(日次 2025-06-16〜2026-07-11)、
+  2回目 2026-07-19(`--max-day 20260712` で日次 07-12 の欠け=ライブ移行の継ぎ目を補完。
+  30分値は max-day の対象外で 07-19 まで投入)。30分値は AiSEG2 本体に直近94日分しか残らない。
+  タイムスタンプは**区間の終端**。再実行する場合は `--max-day` でライブ収集との二重計上を防ぐこと
+  (日次のライブ相当は積算メーターから導出しているため、丸1日ライブが揃っていない最後の日まで
+  を指定する)。生CSVの zip は `pcloud:homeserver-backup/rireki/` に保管(ローカルには残さない方針)。
   AiSEG2 の時間単位履歴は約94日で上書き消失するため、追加救出は不可能(以降はライブ収集が上位互換)
 - 電気料金メトリクス: `cost_day_yen{kind=buy|savings|sell_income}`(日次、限界単価ベース)と
   `cost_period_yen{kind=bill|savings|sell_income, month}`(検針期間=10日〆の合計。bill は
