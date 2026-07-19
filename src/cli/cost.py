@@ -7,6 +7,9 @@
 - cost_day_yen{kind="buy"|"savings"|"sell_income"}    ... 日次 (限界単価ベース)
 - cost_period_yen{kind="bill"|"savings"|"sell_income"} ... 検針期間 (10日〆) 合計。
   bill は基本料金・定額込みの請求額見込み。タイムスタンプは期間開始日
+- cost_year_yen{kind, year} ... 暦年合計。savings/sell_income は日次の暦年合計、
+  bill は「開始日がその暦年に属する検針期間」の請求合計。タイムスタンプは1月1日。
+  保存済みメトリクスから毎回全年を再計算するため、cost-update の再計算窓に依存しない
 """
 
 from __future__ import annotations
@@ -132,6 +135,48 @@ def build_day_kwh_lines(influx_url: str, start: date, end: date, timeout_s: floa
             warnings.append(f"{day}: energy_day_kwh が部分的にしか無い (要調査: {sorted(have)})")
         day += timedelta(days=1)
     return lines, warnings
+
+
+FIRST_DATA_YEAR = 2025  # 家の稼働開始年。これより前の年は照会しない
+
+
+def year_window_seconds(year: int) -> int:
+    """暦年ぶんの sum_over_time 窓 (秒)。左端が排他なので1時間の余白を足し、
+    1/1 00:00 打点のサンプルを確実に含める (翌年のサンプルは常に窓の右外)。"""
+    start = datetime(year, 1, 1, tzinfo=JST)
+    end = datetime(year + 1, 1, 1, tzinfo=JST)
+    return int((end - start).total_seconds()) + 3600
+
+
+def build_year_lines(influx_url: str, today: date, timeout_s: float) -> List[str]:
+    """保存済みの cost_day/cost_period から暦年合計を計算して line protocol を返す。
+
+    評価点は翌年1/1 0時 (進行中の年は未来時刻になるが、窓指定なので問題ない)。
+    """
+    import requests
+
+    lines: List[str] = []
+    for year in range(FIRST_DATA_YEAR, today.year + 1):
+        eval_ts = int(datetime(year + 1, 1, 1, tzinfo=JST).timestamp())
+        window = year_window_seconds(year)
+        ts_ns = int(datetime(year, 1, 1, tzinfo=JST).timestamp() * 1000) * 1_000_000
+        queries = {
+            "savings": f'sum(sum_over_time(cost_day_yen{{kind="savings"}}[{window}s]))',
+            "sell_income": f'sum(sum_over_time(cost_day_yen{{kind="sell_income"}}[{window}s]))',
+            "bill": f'sum(sum_over_time(cost_period_yen{{kind="bill"}}[{window}s]))',
+        }
+        for kind, query in queries.items():
+            r = requests.get(
+                f"{influx_url}/api/v1/query",
+                params={"query": query, "time": eval_ts},
+                timeout=timeout_s,
+            )
+            r.raise_for_status()
+            result = r.json()["data"]["result"]
+            if result:
+                yen = float(result[0]["value"][1])
+                lines.append(f"cost_year,kind={kind},year={year} yen={round(yen, 2)} {ts_ns}")
+    return lines
 
 
 def build_cost_lines(daily: Dict[date, Dict[str, float]], today: date) -> Tuple[List[str], List[str]]:

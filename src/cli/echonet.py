@@ -632,7 +632,9 @@ def cost_update(
 ):
     from datetime import date, timedelta
 
-    from .cost import build_cost_lines, build_day_kwh_lines, fetch_daily_kwh
+    import requests as _requests
+
+    from .cost import build_cost_lines, build_day_kwh_lines, build_year_lines, fetch_daily_kwh
 
     env = _load_env()
     today = date.today()  # Pi は JST 運用
@@ -662,6 +664,12 @@ def cost_update(
         return
     _write_influx(lines, env)
     typer.echo(f"wrote {len(lines)} cost points ({start}〜{today})")
+    # 3) 暦年集計 (書いたばかりの日次/期間値を読むため flush してから)
+    _requests.get(f"{env['INFLUX_URL']}/internal/force_flush", timeout=env["REQUEST_TIMEOUT_S"])
+    year_lines = build_year_lines(env["INFLUX_URL"], today, env["REQUEST_TIMEOUT_S"])
+    if year_lines:
+        _write_influx(year_lines, env)
+        typer.echo(f"wrote {len(year_lines)} year points")
 
 
 @app.command(help="指定間隔で読み取りを繰り返します (systemd 常駐用)。")

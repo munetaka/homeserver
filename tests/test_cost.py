@@ -162,3 +162,41 @@ class TestBuildCostLines:
         bill_line = next(l for l in lines if "kind=bill" in l)
         assert "month=2026-08" in bill_line
         assert f"yen={tariff.period_bill_yen('2026-08', 40.0)}" in bill_line
+
+
+class TestYearAggregation:
+    def test_year_window_covers_jan1_sample_and_leap_years(self):
+        from cli.cost import year_window_seconds
+        assert year_window_seconds(2025) == 365 * 86400 + 3600
+        assert year_window_seconds(2024) == 366 * 86400 + 3600  # うるう年
+
+    @responses.activate
+    def test_build_year_lines_queries_each_year_and_kind(self):
+        from cli.cost import build_year_lines
+
+        eval_2025 = day_ts_ms(date(2026, 1, 1)) // 1000  # 2025年分の評価点 = 翌年1/1
+
+        def reply(request):
+            qs = parse_qs(urlparse(request.url).query)
+            q = qs["query"][0]
+            is_2025 = int(qs["time"][0]) == eval_2025
+            if is_2025:
+                value = {"savings": "50000", "sell_income": "40000", "bill": "120000"}[
+                    "savings" if "savings" in q else "sell_income" if "sell_income" in q else "bill"]
+                body = {"status": "success", "data": {"result": [{"metric": {}, "value": [0, value]}]}}
+            elif "bill" in q:  # 2026年は bill だけ返す想定
+                body = {"status": "success", "data": {"result": [{"metric": {}, "value": [0, "13260"]}]}}
+            else:
+                body = {"status": "success", "data": {"result": []}}
+            return (200, {}, json.dumps(body))
+
+        responses.add_callback(responses.GET, f"{VM}/api/v1/query", callback=reply)
+        lines = build_year_lines(VM, today=date(2026, 7, 16), timeout_s=5)
+        assert "cost_year,kind=savings,year=2025 yen=50000.0" in " ".join(lines)
+        assert "cost_year,kind=bill,year=2025 yen=120000.0" in " ".join(lines)
+        assert "cost_year,kind=bill,year=2026 yen=13260.0" in " ".join(lines)
+        # 2026 の savings/sell_income は結果なし → 行を書かない
+        assert not any("kind=savings,year=2026" in l for l in lines)
+        # タイムスタンプは各年の1/1 0時 (JST)
+        jan1_2025_ns = day_ts_ms(date(2025, 1, 1)) * 1_000_000
+        assert any(l.endswith(f" {jan1_2025_ns}") for l in lines if "year=2025" in l)

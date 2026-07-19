@@ -1082,6 +1082,178 @@
         }
       ],
       "timeFrom": "1y"
+    },
+    {
+      "id": 45,
+      "type": "stat",
+      "title": "年間の請求合計・円 (暦年別, 期間開始日基準)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 42
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(cost_year_yen{kind=\"bill\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "type": "stat",
+      "title": "年間の節約額・円 (自家消費, 暦年別)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 42
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(cost_year_yen{kind=\"savings\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "type": "stat",
+      "title": "年間の売電収入・円 (暦年別)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 42
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(cost_year_yen{kind=\"sell_income\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "type": "stat",
+      "title": "年間の太陽光便益・円 (節約+売電, 暦年別)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 42
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (year) (last_over_time(cost_year_yen{kind=~\"savings|sell_income\"}[3y]))",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ]
     }
   ]
 }
