@@ -1,5 +1,5 @@
 [Unit]
-Description=Compute electricity cost metrics from daily energy
+Description=Materialize daily energy kWh and compute electricity cost metrics
 After=victoria-metrics.service
 
 [Service]

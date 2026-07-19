@@ -1,11 +1,108 @@
 """コストメトリクス生成のテスト。"""
 
+import json
 from datetime import date, timedelta
+from urllib.parse import parse_qs, urlparse
 
 import pytest
+import responses
 
 from cli import tariff
-from cli.cost import build_cost_lines, day_ts_ms
+from cli.cost import build_cost_lines, build_day_kwh_lines, day_ts_ms
+
+VM = "http://vm.test:8428"
+
+
+def _mock_stored_days(rsps, stored: dict):
+    """query_range (実在判定) の応答を組み立てる。stored = {date: [kind, ...]}"""
+    by_kind: dict = {}
+    for day, kinds in stored.items():
+        for kind in kinds:
+            by_kind.setdefault(kind, []).append([day_ts_ms(day) // 1000, "1"])
+    rsps.get(
+        f"{VM}/api/v1/query_range",
+        json={"data": {"result": [
+            {"metric": {"kind": k}, "values": v} for k, v in by_kind.items()
+        ]}},
+    )
+
+
+def _mock_counter_increase(rsps, per_day: dict):
+    """instant query (増分) の応答。per_day = {(date, metric): kwh}。無いものは空応答。"""
+    def callback(request):
+        from datetime import datetime, timezone
+
+        q = parse_qs(urlparse(request.url).query)
+        t = int(q["time"][0])  # 「その日の翌日0時JST」の epoch 秒
+        jst = timezone(timedelta(hours=9))
+        day = (datetime.fromtimestamp(t, jst) - timedelta(days=1)).date()
+        metric = q["query"][0].split("power_")[1].split("_total")[0]
+        kwh = per_day.get((day, metric))
+        result = [] if kwh is None else [{"metric": {}, "value": [t, str(kwh)]}]
+        return (200, {}, json.dumps({"data": {"result": result}}))
+
+    rsps.add_callback("GET", f"{VM}/api/v1/query", callback=callback)
+
+
+class TestBuildDayKwhLines:
+    @responses.activate
+    def test_materializes_missing_day_and_derives_consumption(self):
+        day = date(2026, 7, 13)
+        with responses.RequestsMock() as rsps:
+            _mock_stored_days(rsps, {})
+            _mock_counter_increase(rsps, {
+                (day, "generation"): 7.97, (day, "sell"): 0.57, (day, "buy"): 19.39})
+            lines, warnings = build_day_kwh_lines(VM, day, day, timeout_s=5)
+        assert warnings == []
+        ts_ns = day_ts_ms(day) * 1_000_000
+        assert f"energy_day,kind=buy kwh=19.39 {ts_ns}" in lines
+        assert f"energy_day,kind=generation kwh=7.97 {ts_ns}" in lines
+        assert f"energy_day,kind=sell kwh=0.57 {ts_ns}" in lines
+        # consumption = 発電 + 買電 - 売電
+        assert f"energy_day,kind=consumption kwh={round(7.97 + 19.39 - 0.57, 3)} {ts_ns}" in lines
+
+    @responses.activate
+    def test_skips_days_with_stored_samples(self):
+        imported = date(2026, 7, 12)
+        missing = date(2026, 7, 13)
+        with responses.RequestsMock() as rsps:
+            _mock_stored_days(rsps, {imported: ["buy", "consumption", "generation", "sell"]})
+            _mock_counter_increase(rsps, {
+                (missing, "generation"): 1.0, (missing, "sell"): 0.5, (missing, "buy"): 2.0})
+            lines, warnings = build_day_kwh_lines(VM, imported, missing, timeout_s=5)
+        assert warnings == []
+        # インポート済みの 7/12 は書かず、7/13 だけ実体化される
+        assert all(str(day_ts_ms(missing) * 1_000_000) in l for l in lines)
+        assert len(lines) == 4
+
+    @responses.activate
+    def test_skips_day_with_partial_counter_data(self):
+        day = date(2026, 7, 13)
+        with responses.RequestsMock() as rsps:
+            _mock_stored_days(rsps, {})
+            _mock_counter_increase(rsps, {(day, "buy"): 2.0})  # 太陽光カウンター欠落
+            lines, warnings = build_day_kwh_lines(VM, day, day, timeout_s=5)
+        assert lines == []
+        assert any("実体化をスキップ" in w for w in warnings)
+
+    @responses.activate
+    def test_day_before_live_collection_is_silently_skipped(self):
+        day = date(2026, 6, 1)  # カウンター系列が存在しない過去日
+        with responses.RequestsMock() as rsps:
+            _mock_stored_days(rsps, {})
+            _mock_counter_increase(rsps, {})
+            lines, warnings = build_day_kwh_lines(VM, day, day, timeout_s=5)
+        assert lines == []
+        assert warnings == []
+
+    @responses.activate
+    def test_partial_stored_day_warns(self):
+        day = date(2026, 7, 12)
+        with responses.RequestsMock() as rsps:
+            _mock_stored_days(rsps, {day: ["buy"]})
+            lines, warnings = build_day_kwh_lines(VM, day, day, timeout_s=5)
+        assert lines == []
+        assert any("部分的" in w for w in warnings)
 
 
 def _full_period_daily(month: str, buy_per_day=10.0, sell_per_day=9.0, gen_per_day=15.0):

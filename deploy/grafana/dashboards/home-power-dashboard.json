@@ -704,31 +704,31 @@
           "refId": "A",
           "legendFormat": "自家消費",
           "interval": "1d",
-          "expr": "(sum(energy_day_kwh{kind=\"generation\"}) - sum(energy_day_kwh{kind=\"sell\"})) or (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d)))"
+          "expr": "(sum(last_over_time(energy_day_kwh{kind=\"generation\"}[12h])) - sum(last_over_time(energy_day_kwh{kind=\"sell\"}[12h]))) or (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d)))"
         },
         {
           "refId": "B",
           "legendFormat": "買電",
           "interval": "1d",
-          "expr": "sum(energy_day_kwh{kind=\"buy\"}) or sum(increase(power_buy_total_kwh[1d] offset -1d))"
+          "expr": "sum(last_over_time(energy_day_kwh{kind=\"buy\"}[12h])) or sum(increase(power_buy_total_kwh[1d] offset -1d))"
         },
         {
           "refId": "C",
           "legendFormat": "売電",
           "interval": "1d",
-          "expr": "sum(energy_day_kwh{kind=\"sell\"}) or sum(increase(power_sell_total_kwh[1d] offset -1d))"
+          "expr": "sum(last_over_time(energy_day_kwh{kind=\"sell\"}[12h])) or sum(increase(power_sell_total_kwh[1d] offset -1d))"
         },
         {
           "refId": "D",
           "legendFormat": "発電",
           "interval": "1d",
-          "expr": "sum(energy_day_kwh{kind=\"generation\"}) or sum(increase(power_generation_total_kwh[1d] offset -1d))"
+          "expr": "sum(last_over_time(energy_day_kwh{kind=\"generation\"}[12h])) or sum(increase(power_generation_total_kwh[1d] offset -1d))"
         },
         {
           "refId": "E",
           "legendFormat": "総消費",
           "interval": "1d",
-          "expr": "sum(energy_day_kwh{kind=\"consumption\"}) or (sum(increase(power_generation_total_kwh[1d] offset -1d)) + sum(increase(power_buy_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d)))"
+          "expr": "sum(last_over_time(energy_day_kwh{kind=\"consumption\"}[12h])) or (sum(increase(power_generation_total_kwh[1d] offset -1d)) + sum(increase(power_buy_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d)))"
         }
       ],
       "options": {
@@ -799,13 +799,13 @@
           "refId": "A",
           "legendFormat": "自家消費率",
           "interval": "1d",
-          "expr": "(100 * (sum(energy_day_kwh{kind=\"generation\"}) - sum(energy_day_kwh{kind=\"sell\"})) / sum(energy_day_kwh{kind=\"generation\"})) or (100 * (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))) / sum(increase(power_generation_total_kwh[1d] offset -1d)))"
+          "expr": "(100 * (sum(last_over_time(energy_day_kwh{kind=\"generation\"}[12h])) - sum(last_over_time(energy_day_kwh{kind=\"sell\"}[12h]))) / sum(last_over_time(energy_day_kwh{kind=\"generation\"}[12h]))) or (100 * (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))) / sum(increase(power_generation_total_kwh[1d] offset -1d)))"
         },
         {
           "refId": "B",
           "legendFormat": "自給率",
           "interval": "1d",
-          "expr": "(100 * (sum(energy_day_kwh{kind=\"generation\"}) - sum(energy_day_kwh{kind=\"sell\"})) / sum(energy_day_kwh{kind=\"consumption\"})) or (100 * (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))) / (sum(increase(power_generation_total_kwh[1d] offset -1d)) + sum(increase(power_buy_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))))"
+          "expr": "(100 * (sum(last_over_time(energy_day_kwh{kind=\"generation\"}[12h])) - sum(last_over_time(energy_day_kwh{kind=\"sell\"}[12h]))) / sum(last_over_time(energy_day_kwh{kind=\"consumption\"}[12h]))) or (100 * (sum(increase(power_generation_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))) / (sum(increase(power_generation_total_kwh[1d] offset -1d)) + sum(increase(power_buy_total_kwh[1d] offset -1d)) - sum(increase(power_sell_total_kwh[1d] offset -1d))))"
         }
       ],
       "options": {

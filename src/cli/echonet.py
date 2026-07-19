@@ -625,18 +625,31 @@ def import_history(
     typer.echo(f"{'(dry-run) ' if dry_run else ''}imported {total} points")
 
 
-@app.command(name="cost-update", help="日次kWhを電気料金(円)に換算して書き込みます (tariff.py の料金モデル)。")
+@app.command(name="cost-update", help="確定日の日次kWhを実体化し、電気料金(円)に換算して書き込みます (tariff.py の料金モデル)。")
 def cost_update(
     since: Annotated[str, typer.Option("--since", help="この日付(YYYY-MM-DD)から再計算。省略時は40日前から")] = "",
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ):
     from datetime import date, timedelta
 
-    from .cost import build_cost_lines, fetch_daily_kwh
+    from .cost import build_cost_lines, build_day_kwh_lines, fetch_daily_kwh
 
     env = _load_env()
     today = date.today()  # Pi は JST 運用
     start = date.fromisoformat(since) if since else today - timedelta(days=40)
+    # 1) energy_day_kwh の無い確定日 (昨日まで) を積算メーターから実体化する。
+    #    クエリ時の都度計算は評価グリッドの位相で値が揺れるため、確定日は実サンプルにする
+    day_lines, day_warnings = build_day_kwh_lines(
+        env["INFLUX_URL"], start, today - timedelta(days=1), env["REQUEST_TIMEOUT_S"])
+    for w in day_warnings:
+        typer.echo(f"warn: {w}")
+    if day_lines:
+        if dry_run:
+            typer.echo(f"(dry-run) {len(day_lines)} day-kwh points")
+        else:
+            _write_influx(day_lines, env)
+            typer.echo(f"materialized {len(day_lines)} day-kwh points")
+    # 2) 料金計算 (直前に実体化した値を読む)
     daily = fetch_daily_kwh(env["INFLUX_URL"], start, today, env["REQUEST_TIMEOUT_S"])
     lines, warnings = build_cost_lines(daily, today)
     for w in warnings:

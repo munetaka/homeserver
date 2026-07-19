@@ -48,6 +48,9 @@
   タイムスタンプは**区間の終端**。再実行する場合は `--max-day` でライブ収集との二重計上を防ぐこと
   (日次のライブ相当は積算メーターから導出しているため、丸1日ライブが揃っていない最後の日まで
   を指定する)。生CSVの zip は `pcloud:homeserver-backup/rireki/` に保管(ローカルには残さない方針)。
+  インポート範囲より後の確定日は `el cost-update`(毎晩)が積算メーターから**実体化**して
+  `energy_day_kwh` に書き足す。クエリ時の都度計算が残るのは進行中の「今日」のみ
+  (経緯は [docs/incidents/2026-07-20-daily-panel-stale-carry.md](incidents/2026-07-20-daily-panel-stale-carry.md))
   AiSEG2 の時間単位履歴は約94日で上書き消失するため、追加救出は不可能(以降はライブ収集が上位互換)
 - 電気料金メトリクス: `cost_day_yen{kind=buy|savings|sell_income}`(日次、限界単価ベース)と
   `cost_period_yen{kind=bill|savings|sell_income, month}`(検針期間=10日〆の合計。bill は
@@ -173,6 +176,11 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 - **20秒スキャンで1台程度取りこぼすのは正常**(BLE advertise 間隔の揺らぎ)。常駐ループで平均化される。
 - **VictoriaMetrics の label/series API は既定で直近しか見ない**。過去データの確認には
   `start=` / `end=` を明示する。
+- **VM の窓なしセレクタは最終サンプルを約1サンプル間隔ぶん持ち越す**。日次などまばらな系列を
+  `or` フォールバックの左辺に置くと、系列終端の翌日に前日のコピーが現れてフォールバックを隠す。
+  まばらな系列は必ず `last_over_time(...[12h])` のような明示窓で読むこと。持ち越し猶予は
+  クエリ範囲内のサンプル数から推定されるため、**レンジ長によって再現したりしなかったりする**
+  (→ [2026-07-20 の障害記録](incidents/2026-07-20-daily-panel-stale-carry.md))。
 - **VM への書き込みは InfluxDB v2 互換**(`/api/v2/write`)なのでコレクターのコードは
   InfluxDB / VictoriaMetrics のどちらにも書ける。bucket / token パラメータは VM では無視される。
 - **SwitchBot BLE デコードの罠**: 湿度バイトの bit7 は「本体の表示単位が°F」を示すだけで、

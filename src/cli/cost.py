@@ -19,12 +19,25 @@ from . import tariff
 
 JST = timezone(timedelta(hours=9))
 
-# ダッシュボードと同じハイブリッド式 (履歴 or ライブ積算差分)
+# energy_day_kwh は必ず明示窓 last_over_time(...[12h]) で読む。窓なしセレクタだと VM が
+# サンプル間隔 (1日) から推定した猶予で最終サンプルを翌日の評価点へ持ち越すため、
+# 系列終端の翌日に前日のコピーが現れる (docs/incidents/2026-07-20-*)。12h なら
+# JST 0時打点のサンプルを JST 0時グリッドでも UTC 0時 (JST 9時) グリッドでも拾え、
+# 前日分 (24h 以上前) は決して入らない。
+# ダッシュボードと同じハイブリッド式 (実サンプル or ライブ積算差分)
 DAILY_QUERIES = {
-    "buy": 'sum(energy_day_kwh{kind="buy"}) or sum(increase(power_buy_total_kwh[1d] offset -1d))',
-    "sell": 'sum(energy_day_kwh{kind="sell"}) or sum(increase(power_sell_total_kwh[1d] offset -1d))',
-    "generation": 'sum(energy_day_kwh{kind="generation"}) or sum(increase(power_generation_total_kwh[1d] offset -1d))',
+    "buy": 'sum(last_over_time(energy_day_kwh{kind="buy"}[12h])) or sum(increase(power_buy_total_kwh[1d] offset -1d))',
+    "sell": 'sum(last_over_time(energy_day_kwh{kind="sell"}[12h])) or sum(increase(power_sell_total_kwh[1d] offset -1d))',
+    "generation": 'sum(last_over_time(energy_day_kwh{kind="generation"}[12h])) or sum(increase(power_generation_total_kwh[1d] offset -1d))',
 }
+
+# 実体化: 確定日の日次kWhを積算メーターの増分から求める式 (JST カレンダー日ちょうど)
+COUNTER_DAY_QUERIES = {
+    "buy": "sum(increase(power_buy_total_kwh[1d]))",
+    "sell": "sum(increase(power_sell_total_kwh[1d]))",
+    "generation": "sum(increase(power_generation_total_kwh[1d]))",
+}
+DAY_KINDS = ("buy", "consumption", "generation", "sell")
 
 
 def day_ts_ms(day: date) -> int:
@@ -55,6 +68,70 @@ def fetch_daily_kwh(influx_url: str, start: date, end: date, timeout_s: float) -
             day = datetime.fromtimestamp(int(ts), JST).date()
             daily[day][kind] = float(value)
     return dict(daily)
+
+
+def fetch_stored_day_kinds(influx_url: str, start: date, end: date, timeout_s: float) -> Dict[date, set]:
+    """energy_day_kwh の実サンプルがある日を kind 別に返す (持ち越しを除外した実在判定)。"""
+    import requests
+
+    r = requests.get(
+        f"{influx_url}/api/v1/query_range",
+        params={
+            "query": "count by (kind) (last_over_time(energy_day_kwh[12h]))",
+            "start": day_ts_ms(start) // 1000,
+            "end": day_ts_ms(end) // 1000,
+            "step": 86400,
+        },
+        timeout=timeout_s,
+    )
+    r.raise_for_status()
+    stored: Dict[date, set] = defaultdict(set)
+    for series in r.json()["data"]["result"]:
+        kind = series["metric"].get("kind", "")
+        for ts, _ in series["values"]:
+            stored[datetime.fromtimestamp(int(ts), JST).date()].add(kind)
+    return dict(stored)
+
+
+def build_day_kwh_lines(influx_url: str, start: date, end: date, timeout_s: float) -> Tuple[List[str], List[str]]:
+    """energy_day_kwh が無い確定日を積算メーターから実体化する行 (line protocol) を作る。
+
+    - end には「昨日」以前を渡すこと (進行中の日は確定しないので書かない)
+    - 実サンプルがある日はスキップ (AiSEG2 インポートの公式値を正として保持)
+    - 積算メーターに増分が取れない日 (ライブ収集開始前など) もスキップ
+    """
+    import requests
+
+    stored = fetch_stored_day_kinds(influx_url, start, end, timeout_s)
+    lines: List[str] = []
+    warnings: List[str] = []
+    day = start
+    while day <= end:
+        have = stored.get(day, set())
+        if not have:
+            values: Dict[str, float] = {}
+            for kind, query in COUNTER_DAY_QUERIES.items():
+                r = requests.get(
+                    f"{influx_url}/api/v1/query",
+                    params={"query": query, "time": day_ts_ms(day) // 1000 + 86400},
+                    timeout=timeout_s,
+                )
+                r.raise_for_status()
+                result = r.json()["data"]["result"]
+                if result:
+                    values[kind] = float(result[0]["value"][1])
+            if len(values) == len(COUNTER_DAY_QUERIES):
+                values["consumption"] = values["generation"] + values["buy"] - values["sell"]
+                ts_ns = day_ts_ms(day) * 1_000_000
+                for kind in DAY_KINDS:
+                    lines.append(f"energy_day,kind={kind} kwh={round(values[kind], 3)} {ts_ns}")
+            elif values:
+                warnings.append(f"{day}: 積算メーターの増分が一部しか取れないため実体化をスキップ "
+                                f"(取れた kind: {sorted(values)})")
+        elif have < set(DAY_KINDS):
+            warnings.append(f"{day}: energy_day_kwh が部分的にしか無い (要調査: {sorted(have)})")
+        day += timedelta(days=1)
+    return lines, warnings
 
 
 def build_cost_lines(daily: Dict[date, Dict[str, float]], today: date) -> Tuple[List[str], List[str]]:
