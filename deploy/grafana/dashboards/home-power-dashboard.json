@@ -1331,6 +1331,10 @@
             {
               "type": "value",
               "options": {
+                "0": {
+                  "text": "停止",
+                  "color": "#4a4a4a"
+                },
                 "1": {
                   "text": "自動",
                   "color": "purple"
@@ -1362,7 +1366,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "appliance_mode",
+          "expr": "appliance_mode * appliance_on",
           "legendFormat": "{{location}}"
         }
       ]
