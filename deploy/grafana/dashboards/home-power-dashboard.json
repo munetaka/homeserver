@@ -1374,7 +1374,7 @@
     {
       "id": 51,
       "type": "timeseries",
-      "title": "エアコン日次消費電力量 (積算カウンタ由来)",
+      "title": "エアコン日次消費電力量 (積算カウンタ由来) — 常に直近1週間表示",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -1401,7 +1401,8 @@
           "expr": "sum by (location) (increase(appliance_energy_total_kwh[1d] offset -1d))",
           "legendFormat": "{{location}}"
         }
-      ]
+      ],
+      "timeFrom": "7d"
     }
   ]
 }
