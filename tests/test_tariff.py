@@ -53,8 +53,17 @@ class TestRates:
         assert tariff.marginal_buy_rate_yen("2026-07") == pytest.approx(27.71)
 
     def test_subsidy_applies_in_august(self):
-        # 8月は燃調-10.27に加え軽減措置-3.5
-        assert tariff.marginal_buy_rate_yen("2026-08") == pytest.approx(30.72 - 10.27 + 4.18 - 3.5)
+        # 8月は燃調(反映前)-6.77 に加え軽減措置-3.5
+        assert tariff.marginal_buy_rate_yen("2026-08") == pytest.approx(30.72 - 6.77 + 4.18 - 3.5)
+
+    def test_fuel_plus_subsidy_matches_tepco_published_total(self):
+        # 「燃調(反映前) + 支援値引き」が TEPCO 公表の反映後単価と一致すること。
+        # FUEL_ADJUSTMENT_YEN に反映後の値を入れると二重計上になる回帰ガード
+        # (2026-08 で実際に起きた)
+        for month, published_after in {"2026-08": -10.27, "2026-09": -10.96}.items():
+            r = tariff.rates_for(month)
+            assert r.fuel + r.subsidy == pytest.approx(published_after), month
+            assert r.fuel > published_after, f"{month}: fuel が反映後の値になっていないか?"
 
     def test_levy_fiscal_year_boundary(self):
         assert tariff.rates_for("2026-04").levy == 3.98  # 2025年度分

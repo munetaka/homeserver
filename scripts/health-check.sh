@@ -27,6 +27,29 @@ except Exception:
     print('?')"
 }
 echo "鮮度     : climate $(age climate_temperature)s / power $(age power_generation_w)s (600s超でwatchdog発火)"
+# コスト系列は毎晩更新される (最新サンプルは昨日0時打点 = 正常でも最大約48h)。
+# 60時間 (216000s) より古い場合は cost-update が単価未登録などで日次をスキップ
+# している疑い → journalctl -u cost-update.service を確認
+cost_age() {
+  curl -s --max-time 10 -G "http://localhost:8428/api/v1/query" \
+    --data-urlencode "query=time() - max(timestamp(last_over_time(cost_day_yen[3d])))" | python3 -c "
+import json,sys
+try:
+    r = json.load(sys.stdin)['data']['result']
+    print(int(float(r[0]['value'][1])) if r else '>259200')
+except Exception:
+    print('?')"
+}
+CA=$(cost_age)
+printf "コスト鮮度: %ss" "$CA"
+case "$CA" in
+  ''|'?'|'>'*) echo "  ← 要確認: journalctl -u cost-update.service (単価未登録?)" ;;
+  *) if [ "$CA" -gt 216000 ]; then
+       echo "  ← 要確認: journalctl -u cost-update.service (単価未登録?)"
+     else
+       echo " (OK)"
+     fi ;;
+esac
 echo "disk     : $(df -h / | awk 'NR==2{print $5" used, "$4" free"}')"
 echo "CPU温度  : $(awk '{printf "%.1f", $1/1000}' /sys/class/thermal/thermal_zone0/temp)C"
 printf "watchdog発火累計: "
