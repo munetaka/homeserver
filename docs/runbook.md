@@ -170,6 +170,27 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 電源再投入 → それでもダメなら SD カード故障を疑い、`deploy/README.md` の再構築手順へ。
 データは pCloud の前日バックアップから復元。
 
+## 依存更新(dependabot PR)の取り込み手順
+
+マージ自体は GitHub 上でユーザーが行う(エージェントの gh は仕事用アカウントのため書き込み不可)。
+
+1. **マージ前**: ローカルに未プッシュのコミットが無い状態にしておく(あると push 時の
+   rebase でハッシュが書き換わり、Pi のチェックアウトと食い違って紛らわしい)。
+   PR の CI(test + shellcheck)が green なことを確認。メジャー更新
+   (例: setup-uv v8→v10)だけはリリースノートの破壊的変更に目を通す
+2. **マージ**: GitHub 上で PR をマージ(複数あればまとめて)
+3. **取り込み**: ローカルで `git pull`(GitHub 鍵の ssh-add が必要)
+4. **影響確認**: `uv sync && uv run pytest --cov`、ランタイム依存
+   (typer / bleak / requests / python-dotenv)が上がった場合は
+   `uv run sb --help` / `uv run el --help` のスモークも
+5. **本番反映**: `scripts/deploy-to-pi.sh`(pyproject / uv.lock の変更を検知して
+   コレクターを自動再起動する)
+6. **動作確認**: `journalctl -u switchbot -u echonet` で毎分の `wrote N points` を確認
+   (`/homeserver-health` でも可)
+
+手順3〜6は「dependabot をマージしたので影響確認して」とエージェントに頼めば一括で行う。
+**マージしただけでは Pi に反映されない**(Pi は GitHub を見ていない)点に注意。
+
 ## Tips(ハマりどころ)
 
 - **Pi の TZ は 2026-07-09 まで Europe/London (BST) だった**。docs/incidents/ 内の時刻表記は
