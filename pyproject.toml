@@ -31,7 +31,7 @@ dev = [
     "hypothesis>=6.165.5",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "responses>=0.26.2",
+    "responses>=0.26.3",
     "time-machine>=3.4.0",
 ]
 
