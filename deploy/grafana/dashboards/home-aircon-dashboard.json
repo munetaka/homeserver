@@ -296,11 +296,16 @@
       "timeFrom": "24h",
       "options": {
         "mapping": "auto",
+        "series": [],
         "legend": {
-          "showLegend": false
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -380,7 +385,8 @@
           "legendFormat": "絶対湿度",
           "expr": "WITH (t = appliance_room_temp{location=\"home-エアコンA\"}, rh = appliance_room_humidity{location=\"home-エアコンA\"}) 216.7 * 6.1094 * exp(17.625 * t / (t + 243.04)) * rh / 100 / (t + 273.15)"
         }
-      ]
+      ],
+      "pluginVersion": "13.1.0"
     },
     {
       "id": 7,
@@ -396,11 +402,16 @@
       "timeFrom": "24h",
       "options": {
         "mapping": "auto",
+        "series": [],
         "legend": {
-          "showLegend": false
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -480,7 +491,8 @@
           "legendFormat": "絶対湿度",
           "expr": "WITH (t = appliance_room_temp{location=\"home-エアコンB\"}, rh = appliance_room_humidity{location=\"home-エアコンB\"}) 216.7 * 6.1094 * exp(17.625 * t / (t + 243.04)) * rh / 100 / (t + 273.15)"
         }
-      ]
+      ],
+      "pluginVersion": "13.1.0"
     },
     {
       "id": 8,
