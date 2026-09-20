@@ -14,9 +14,18 @@
       "id": 1,
       "type": "stat",
       "title": "エアコンA",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "graphMode": "none",
         "colorMode": "background"
       },
@@ -26,12 +35,30 @@
             {
               "type": "value",
               "options": {
-                "0": { "text": "停止", "color": "#4a4a4a" },
-                "1": { "text": "自動", "color": "purple" },
-                "2": { "text": "冷房", "color": "blue" },
-                "3": { "text": "暖房", "color": "red" },
-                "4": { "text": "除湿", "color": "teal" },
-                "5": { "text": "送風", "color": "green" }
+                "0": {
+                  "text": "停止",
+                  "color": "#4a4a4a"
+                },
+                "1": {
+                  "text": "自動",
+                  "color": "purple"
+                },
+                "2": {
+                  "text": "冷房",
+                  "color": "blue"
+                },
+                "3": {
+                  "text": "暖房",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "除湿",
+                  "color": "teal"
+                },
+                "5": {
+                  "text": "送風",
+                  "color": "green"
+                }
               }
             }
           ]
@@ -50,9 +77,18 @@
       "id": 2,
       "type": "stat",
       "title": "エアコンB",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "graphMode": "none",
         "colorMode": "background"
       },
@@ -62,12 +98,30 @@
             {
               "type": "value",
               "options": {
-                "0": { "text": "停止", "color": "#4a4a4a" },
-                "1": { "text": "自動", "color": "purple" },
-                "2": { "text": "冷房", "color": "blue" },
-                "3": { "text": "暖房", "color": "red" },
-                "4": { "text": "除湿", "color": "teal" },
-                "5": { "text": "送風", "color": "green" }
+                "0": {
+                  "text": "停止",
+                  "color": "#4a4a4a"
+                },
+                "1": {
+                  "text": "自動",
+                  "color": "purple"
+                },
+                "2": {
+                  "text": "冷房",
+                  "color": "blue"
+                },
+                "3": {
+                  "text": "暖房",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "除湿",
+                  "color": "teal"
+                },
+                "5": {
+                  "text": "送風",
+                  "color": "green"
+                }
               }
             }
           ]
@@ -86,9 +140,18 @@
       "id": 3,
       "type": "stat",
       "title": "外気温",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "graphMode": "area"
       },
       "fieldConfig": {
@@ -98,26 +161,51 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "blue", "value": null },
-              { "color": "text", "value": 15 },
-              { "color": "orange", "value": 28 },
-              { "color": "red", "value": 33 }
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "text",
+                "value": 15
+              },
+              {
+                "color": "orange",
+                "value": 28
+              },
+              {
+                "color": "red",
+                "value": 33
+              }
             ]
           }
         },
         "overrides": []
       },
       "targets": [
-        { "expr": "avg(appliance_outdoor_temp)", "refId": "A", "instant": true }
+        {
+          "expr": "avg(appliance_outdoor_temp)",
+          "refId": "A",
+          "instant": true
+        }
       ]
     },
     {
       "id": 4,
       "type": "stat",
       "title": "日射 (太陽光発電を代理指標に)",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "graphMode": "area"
       },
       "fieldConfig": {
@@ -127,25 +215,47 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "text", "value": null },
-              { "color": "yellow", "value": 1000 },
-              { "color": "orange", "value": 3000 }
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "orange",
+                "value": 3000
+              }
             ]
           }
         },
         "overrides": []
       },
       "targets": [
-        { "expr": "sum(power_generation_w)", "refId": "A", "instant": true }
+        {
+          "expr": "sum(power_generation_w)",
+          "refId": "A",
+          "instant": true
+        }
       ]
     },
     {
       "id": 5,
       "type": "stat",
       "title": "空調 直近24hの電力量",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "graphMode": "none"
       },
       "fieldConfig": {
@@ -154,7 +264,12 @@
           "decimals": 1,
           "thresholds": {
             "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -172,45 +287,87 @@
       "type": "xychart",
       "title": "快適マップ エアコンA (室温×絶対湿度, 24hの軌跡)",
       "description": "快適ゾーンの目安: 室温 22〜26.5℃ × 絶対湿度 7〜12.5 g/m³。右に外れ=温度が高い→冷房/設定下げ、上に外れ=湿気が多い→除湿、左下=冷やしすぎ/乾かしすぎ。",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
       "timeFrom": "24h",
       "options": {
         "mapping": "auto",
-        "dims": { "x": "室温" },
-        "series": [],
-        "legend": { "showLegend": false },
-        "tooltip": { "mode": "single" }
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "custom": {
             "show": "points",
-            "pointSize": { "fixed": 5 },
+            "pointSize": {
+              "fixed": 5
+            },
             "fillOpacity": 60
           }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "室温" },
+            "matcher": {
+              "id": "byName",
+              "options": "室温"
+            },
             "properties": [
-              { "id": "unit", "value": "celsius" },
-              { "id": "min", "value": 20 },
-              { "id": "max", "value": 30 }
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "min",
+                "value": 20
+              },
+              {
+                "id": "max",
+                "value": 30
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "絶対湿度" },
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度"
+            },
             "properties": [
-              { "id": "unit", "value": "suffix:g/m³" },
-              { "id": "decimals", "value": 1 },
-              { "id": "min", "value": 5 },
-              { "id": "max", "value": 16 }
+              {
+                "id": "unit",
+                "value": "suffix:g/m³"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 5
+              },
+              {
+                "id": "max",
+                "value": 16
+              }
             ]
           }
         ]
       },
       "transformations": [
-        { "id": "joinByField", "options": { "byField": "Time", "mode": "outer" } }
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "Time",
+            "mode": "outer"
+          }
+        }
       ],
       "targets": [
         {
@@ -230,45 +387,87 @@
       "type": "xychart",
       "title": "快適マップ エアコンB (室温×絶対湿度, 24hの軌跡)",
       "description": "快適ゾーンの目安: 室温 22〜26.5℃ × 絶対湿度 7〜12.5 g/m³。右に外れ=温度が高い→冷房/設定下げ、上に外れ=湿気が多い→除湿、左下=冷やしすぎ/乾かしすぎ。",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
       "timeFrom": "24h",
       "options": {
         "mapping": "auto",
-        "dims": { "x": "室温" },
-        "series": [],
-        "legend": { "showLegend": false },
-        "tooltip": { "mode": "single" }
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "custom": {
             "show": "points",
-            "pointSize": { "fixed": 5 },
+            "pointSize": {
+              "fixed": 5
+            },
             "fillOpacity": 60
           }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "室温" },
+            "matcher": {
+              "id": "byName",
+              "options": "室温"
+            },
             "properties": [
-              { "id": "unit", "value": "celsius" },
-              { "id": "min", "value": 20 },
-              { "id": "max", "value": 30 }
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "min",
+                "value": 20
+              },
+              {
+                "id": "max",
+                "value": 30
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "絶対湿度" },
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度"
+            },
             "properties": [
-              { "id": "unit", "value": "suffix:g/m³" },
-              { "id": "decimals", "value": 1 },
-              { "id": "min", "value": 5 },
-              { "id": "max", "value": 16 }
+              {
+                "id": "unit",
+                "value": "suffix:g/m³"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 5
+              },
+              {
+                "id": "max",
+                "value": 16
+              }
             ]
           }
         ]
       },
       "transformations": [
-        { "id": "joinByField", "options": { "byField": "Time", "mode": "outer" } }
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "Time",
+            "mode": "outer"
+          }
+        }
       ],
       "targets": [
         {
@@ -287,21 +486,49 @@
       "id": 8,
       "type": "state-timeline",
       "title": "操作: 運転モード",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 13 },
-      "options": { "showValue": "auto" },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "options": {
+        "showValue": "auto"
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "lineWidth": 0, "fillOpacity": 70 },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 70
+          },
           "mappings": [
             {
               "type": "value",
               "options": {
-                "0": { "text": "停止", "color": "#4a4a4a" },
-                "1": { "text": "自動", "color": "purple" },
-                "2": { "text": "冷房", "color": "blue" },
-                "3": { "text": "暖房", "color": "red" },
-                "4": { "text": "除湿", "color": "teal" },
-                "5": { "text": "送風", "color": "green" }
+                "0": {
+                  "text": "停止",
+                  "color": "#4a4a4a"
+                },
+                "1": {
+                  "text": "自動",
+                  "color": "purple"
+                },
+                "2": {
+                  "text": "冷房",
+                  "color": "blue"
+                },
+                "3": {
+                  "text": "暖房",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "除湿",
+                  "color": "teal"
+                },
+                "5": {
+                  "text": "送風",
+                  "color": "green"
+                }
               }
             }
           ]
@@ -320,34 +547,81 @@
       "id": 9,
       "type": "timeseries",
       "title": "結果: 温度 (実線=室温, 破線=設定, 細線=外気)",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "celsius",
           "decimals": 1,
-          "custom": { "drawStyle": "line", "lineWidth": 2 }
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": "/設定/" },
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/設定/"
+            },
             "properties": [
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [6, 4] } },
-              { "id": "custom.lineWidth", "value": 1 }
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
             ]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "/外気/" },
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/外気/"
+            },
             "properties": [
-              { "id": "custom.lineWidth", "value": 1 },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#888888" } }
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
             ]
           }
         ]
       },
       "targets": [
-        { "expr": "appliance_room_temp", "legendFormat": "室温 {{location}}", "refId": "A" },
-        { "expr": "appliance_setpoint", "legendFormat": "設定 {{location}}", "refId": "B" },
-        { "expr": "avg(appliance_outdoor_temp)", "legendFormat": "外気", "refId": "C" }
+        {
+          "expr": "appliance_room_temp",
+          "legendFormat": "室温 {{location}}",
+          "refId": "A"
+        },
+        {
+          "expr": "appliance_setpoint",
+          "legendFormat": "設定 {{location}}",
+          "refId": "B"
+        },
+        {
+          "expr": "avg(appliance_outdoor_temp)",
+          "legendFormat": "外気",
+          "refId": "C"
+        }
       ]
     },
     {
@@ -355,23 +629,55 @@
       "type": "timeseries",
       "title": "結果: 絶対湿度 と 日射 (右軸=発電W)",
       "description": "冷房で室温が設定に達した後に絶対湿度が上がってくる=湿度戻り。そのタイミングが除湿や設定見直しの検討どき。発電カーブ=日射で、遮蔽/取得の効き具合を室温と突き合わせる。",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "suffix:g/m³",
           "decimals": 1,
-          "custom": { "drawStyle": "line", "lineWidth": 2 }
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "日射 (発電)" },
+            "matcher": {
+              "id": "byName",
+              "options": "日射 (発電)"
+            },
             "properties": [
-              { "id": "unit", "value": "watt" },
-              { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "custom.lineWidth", "value": 1 },
-              { "id": "custom.fillOpacity", "value": 15 },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } },
-              { "id": "min", "value": 0 }
+              {
+                "id": "unit",
+                "value": "watt"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
             ]
           }
         ]
@@ -398,13 +704,24 @@
       "id": 11,
       "type": "timeseries",
       "title": "コスト: 空調の電力量 (kWh/時)",
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 33 },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "kwatth",
           "decimals": 2,
           "min": 0,
-          "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } }
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
         },
         "overrides": []
       },
@@ -422,29 +739,70 @@
       "type": "timeseries",
       "title": "日別振り返り: 快適率(全室) / 空調kWh / 日射kWh — 常に直近14日表示",
       "description": "快適率 = 全部屋(屋外除く)が室温22〜26.5℃かつ絶対湿度7〜12.5g/m³に収まっていた時間の割合。",
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 33 },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
       "timeFrom": "14d",
       "fieldConfig": {
         "defaults": {
           "unit": "kwatth",
           "decimals": 1,
-          "custom": { "drawStyle": "line", "lineWidth": 2, "showPoints": "auto" }
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "auto"
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "快適率" },
+            "matcher": {
+              "id": "byName",
+              "options": "快適率"
+            },
             "properties": [
-              { "id": "unit", "value": "percent" },
-              { "id": "min", "value": 0 },
-              { "id": "max", "value": 100 },
-              { "id": "custom.drawStyle", "value": "bars" },
-              { "id": "custom.fillOpacity", "value": 50 },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 50
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
             ]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "/kWh/" },
-            "properties": [{ "id": "custom.axisPlacement", "value": "right" }]
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/kWh/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
           }
         ]
       },
@@ -473,7 +831,12 @@
       "id": 13,
       "type": "text",
       "title": "運転指針 (2026-07〜09 の実測から。データが溜まったら更新する)",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
       "options": {
         "mode": "markdown",
         "content": "## この家(C値0.14 / UA値0.26, HEAT20 G3)の空調セオリー\n\n**快適ゾーン: 室温 22〜26.5℃ × 絶対湿度 7〜12.5 g/m³**(上の快適マップとこのゾーン定義はセット。使いながら調整する)\n\n| マップ上の位置 | 意味 | アクション |\n| --- | --- | --- |\n| 右に外れ (室温高い) | 顕熱が過剰 | 冷房 / 設定を下げる。日中なら日射遮蔽を先に疑う |\n| 上に外れ (絶対湿度高い) | 潜熱が過剰 | 除湿、または冷房のまま風量弱で除湿量を稼ぐ |\n| 左下に外れ | 冷やしすぎ / 乾かしすぎ | 設定を上げる (電気代も下がる) |\n\n### 実測からわかっていること (2026-07〜09, 60日)\n- **エアコンBの除湿は冷房26℃より電力+16% (293W vs 252W) で、室温は23.4℃まで下がり、絶対湿度の到達点は同じ (11.5g)**。蒸し暑い日中の主役は冷房。除湿の出番は「気温は低いのに湿度だけ高い」局面 (雨天・夜間) に限定する\n- **送風は湿度に無力** (RH64%に上昇した実績)。除湿目的で使わない\n- 冷房は室温が設定に達するとコンプレッサが止まり除湿もされない (**湿度戻り**)。「絶対湿度と日射」パネルで室温到達後にg/m³が這い上がるのが見えたら、除湿への切替 or 設定0.5℃下げの検討どき\n- **日射 = 発電カーブ**。G3住宅は日射取得の影響が大きいので、発電ピーク帯に室温が上がっていれば夏は遮蔽不足、冬は逆に取得成功。「操作していないのに室温が動く」原因はほぼこれ\n"
