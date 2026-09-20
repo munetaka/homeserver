@@ -287,7 +287,7 @@
       "type": "xychart",
       "pluginVersion": "13.1.0",
       "title": "快適マップ 2Fリビング (エアコンA, 24hの軌跡)",
-      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
+      "description": "緑破線=快適ゾーン (室温22〜26.5℃、絶対湿度7〜12.5g/m³。高温側ほど許容湿度が下がる形)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -417,6 +417,10 @@
       },
       "transformations": [
         {
+          "filter": {
+            "id": "byRefId",
+            "options": "A|B"
+          },
           "id": "joinByField",
           "options": {
             "byField": "Time",
@@ -428,12 +432,20 @@
         {
           "refId": "A",
           "legendFormat": "室温",
-          "expr": "climate_temperature{location=\"home-2F-リビング\"}"
+          "expr": "climate_temperature{location=\"home-2F-リビング\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P4169E866C3094E38"
+          }
         },
         {
           "refId": "B",
           "legendFormat": "絶対湿度",
-          "expr": "climate_abs_humidity{location=\"home-2F-リビング\"}"
+          "expr": "climate_abs_humidity{location=\"home-2F-リビング\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P4169E866C3094E38"
+          }
         },
         {
           "refId": "Z",
@@ -442,16 +454,20 @@
             "uid": "testdata"
           },
           "scenarioId": "csv_content",
-          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,12.5\n22,12.5\n22,7"
+          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,11\n25,12.5\n22,12.5\n22,7"
         }
-      ]
+      ],
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      }
     },
     {
       "id": 7,
       "type": "xychart",
       "pluginVersion": "13.1.0",
       "title": "快適マップ 1F寝室 (エアコンB, 24hの軌跡)",
-      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
+      "description": "緑破線=快適ゾーン (室温22〜26.5℃、絶対湿度7〜12.5g/m³。高温側ほど許容湿度が下がる形)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -596,12 +612,20 @@
         {
           "refId": "A",
           "legendFormat": "室温",
-          "expr": "climate_temperature{location=\"home-1F-寝室\"}"
+          "expr": "climate_temperature{location=\"home-1F-寝室\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P4169E866C3094E38"
+          }
         },
         {
           "refId": "B",
           "legendFormat": "絶対湿度",
-          "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}"
+          "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P4169E866C3094E38"
+          }
         },
         {
           "refId": "Z",
@@ -610,9 +634,13 @@
             "uid": "testdata"
           },
           "scenarioId": "csv_content",
-          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,12.5\n22,12.5\n22,7"
+          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,11\n25,12.5\n22,12.5\n22,7"
         }
-      ]
+      ],
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      }
     },
     {
       "id": 8,
