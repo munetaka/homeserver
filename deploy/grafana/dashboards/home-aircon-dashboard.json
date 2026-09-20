@@ -287,7 +287,7 @@
       "type": "xychart",
       "pluginVersion": "13.1.0",
       "title": "快適マップ 2Fリビング (エアコンA, 24hの軌跡)",
-      "description": "緑破線=快適ゾーン (室温22〜26.5℃、絶対湿度7〜12.5g/m³。高温側ほど許容湿度が下がる形)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
+      "description": "緑破線=快適ゾーン (RH35〜60%相当の帯 + 蒸し暑さ上限12.5g/m³。高温ほど乾燥にも湿気にも厳しくなる六角形)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、下に外れ=乾燥しすぎ (冬は加湿)、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -341,6 +341,10 @@
               {
                 "id": "custom.axisSoftMax",
                 "value": 30
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "室温"
               }
             ]
           },
@@ -365,6 +369,10 @@
               {
                 "id": "custom.axisSoftMax",
                 "value": 16
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "絶対湿度"
               }
             ]
           },
@@ -374,6 +382,10 @@
               "options": "快適ゾーン"
             },
             "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:g/m³"
+              },
               {
                 "id": "custom.show",
                 "value": "lines"
@@ -410,6 +422,18 @@
                   "legend": true,
                   "tooltip": true
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ゾーン室温"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
               }
             ]
           }
@@ -454,7 +478,7 @@
             "uid": "testdata"
           },
           "scenarioId": "csv_content",
-          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,11\n25,12.5\n22,12.5\n22,7"
+          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,8.8\n26.5,11\n25,12.5\n23,12.5\n22,11.7\n22,7"
         }
       ],
       "datasource": {
@@ -467,7 +491,7 @@
       "type": "xychart",
       "pluginVersion": "13.1.0",
       "title": "快適マップ 1F寝室 (エアコンB, 24hの軌跡)",
-      "description": "緑破線=快適ゾーン (室温22〜26.5℃、絶対湿度7〜12.5g/m³。高温側ほど許容湿度が下がる形)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
+      "description": "緑破線=快適ゾーン (RH35〜60%相当の帯 + 蒸し暑さ上限12.5g/m³。高温ほど乾燥にも湿気にも厳しくなる六角形)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、下に外れ=乾燥しすぎ (冬は加湿)、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -521,6 +545,10 @@
               {
                 "id": "custom.axisSoftMax",
                 "value": 30
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "室温"
               }
             ]
           },
@@ -545,6 +573,10 @@
               {
                 "id": "custom.axisSoftMax",
                 "value": 16
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "絶対湿度"
               }
             ]
           },
@@ -554,6 +586,10 @@
               "options": "快適ゾーン"
             },
             "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:g/m³"
+              },
               {
                 "id": "custom.show",
                 "value": "lines"
@@ -590,6 +626,18 @@
                   "legend": true,
                   "tooltip": true
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ゾーン室温"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
               }
             ]
           }
@@ -634,7 +682,7 @@
             "uid": "testdata"
           },
           "scenarioId": "csv_content",
-          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,11\n25,12.5\n22,12.5\n22,7"
+          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,8.8\n26.5,11\n25,12.5\n23,12.5\n22,11.7\n22,7"
         }
       ],
       "datasource": {
