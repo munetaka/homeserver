@@ -417,10 +417,6 @@
       },
       "transformations": [
         {
-          "filter": {
-            "id": "byRefId",
-            "options": "A|B"
-          },
           "id": "joinByField",
           "options": {
             "byField": "Time",
