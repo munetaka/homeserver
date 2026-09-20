@@ -1,0 +1,9 @@
+# 静的な図形データ (快適ゾーンの枠線など) をパネルに描くための組み込みデータソース
+apiVersion: 1
+datasources:
+  - name: TestData
+    type: grafana-testdata-datasource
+    uid: testdata
+    access: proxy
+    isDefault: false
+    editable: false

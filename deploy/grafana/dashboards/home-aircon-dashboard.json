@@ -285,8 +285,9 @@
     {
       "id": 6,
       "type": "xychart",
-      "title": "快適マップ エアコンA (室温×絶対湿度, 24hの軌跡)",
-      "description": "快適ゾーンの目安: 室温 22〜26.5℃ × 絶対湿度 7〜12.5 g/m³。右に外れ=温度が高い→冷房/設定下げ、上に外れ=湿気が多い→除湿、左下=冷やしすぎ/乾かしすぎ。",
+      "pluginVersion": "13.1.0",
+      "title": "快適マップ 2Fリビング (エアコンA, 24hの軌跡)",
+      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。点の色は時刻 (薄=過去24hの始まり, 濃=いま)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -295,8 +296,55 @@
       },
       "timeFrom": "24h",
       "options": {
-        "mapping": "auto",
-        "series": [],
+        "mapping": "manual",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "室温"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "絶対湿度"
+              }
+            },
+            "color": {
+              "matcher": {
+                "id": "byName",
+                "options": "時刻"
+              }
+            }
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 1
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "ゾーン室温"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "快適ゾーン"
+              }
+            }
+          }
+        ],
         "legend": {
           "showLegend": false,
           "displayMode": "list",
@@ -313,9 +361,9 @@
           "custom": {
             "show": "points",
             "pointSize": {
-              "fixed": 5
+              "fixed": 4
             },
-            "fillOpacity": 60
+            "fillOpacity": 70
           }
         },
         "overrides": [
@@ -330,11 +378,15 @@
                 "value": "celsius"
               },
               {
-                "id": "min",
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.axisSoftMin",
                 "value": 20
               },
               {
-                "id": "max",
+                "id": "custom.axisSoftMax",
                 "value": 30
               }
             ]
@@ -354,12 +406,75 @@
                 "value": 1
               },
               {
-                "id": "min",
+                "id": "custom.axisSoftMin",
                 "value": 5
               },
               {
-                "id": "max",
+                "id": "custom.axisSoftMax",
                 "value": 16
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "時刻"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-blues"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "快適ゾーン"
+            },
+            "properties": [
+              {
+                "id": "custom.show",
+                "value": "lines"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": false,
+                  "legend": true,
+                  "tooltip": true
+                }
               }
             ]
           }
@@ -367,6 +482,10 @@
       },
       "transformations": [
         {
+          "filter": {
+            "id": "byRefId",
+            "options": "A|B|C"
+          },
           "id": "joinByField",
           "options": {
             "byField": "Time",
@@ -378,21 +497,35 @@
         {
           "refId": "A",
           "legendFormat": "室温",
-          "expr": "appliance_room_temp{location=\"home-エアコンA\"}"
+          "expr": "climate_temperature{location=\"home-2F-リビング\"}"
         },
         {
           "refId": "B",
           "legendFormat": "絶対湿度",
-          "expr": "WITH (t = appliance_room_temp{location=\"home-エアコンA\"}, rh = appliance_room_humidity{location=\"home-エアコンA\"}) 216.7 * 6.1094 * exp(17.625 * t / (t + 243.04)) * rh / 100 / (t + 273.15)"
+          "expr": "climate_abs_humidity{location=\"home-2F-リビング\"}"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "時刻",
+          "expr": "timestamp(climate_temperature{location=\"home-2F-リビング\"}) * 1000"
+        },
+        {
+          "refId": "Z",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,12.5\n22,12.5\n22,7"
         }
-      ],
-      "pluginVersion": "13.1.0"
+      ]
     },
     {
       "id": 7,
       "type": "xychart",
-      "title": "快適マップ エアコンB (室温×絶対湿度, 24hの軌跡)",
-      "description": "快適ゾーンの目安: 室温 22〜26.5℃ × 絶対湿度 7〜12.5 g/m³。右に外れ=温度が高い→冷房/設定下げ、上に外れ=湿気が多い→除湿、左下=冷やしすぎ/乾かしすぎ。",
+      "pluginVersion": "13.1.0",
+      "title": "快適マップ 1F寝室 (エアコンB, 24hの軌跡)",
+      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。点の色は時刻 (薄=過去24hの始まり, 濃=いま)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -401,8 +534,55 @@
       },
       "timeFrom": "24h",
       "options": {
-        "mapping": "auto",
-        "series": [],
+        "mapping": "manual",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "室温"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "絶対湿度"
+              }
+            },
+            "color": {
+              "matcher": {
+                "id": "byName",
+                "options": "時刻"
+              }
+            }
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 1
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "ゾーン室温"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "快適ゾーン"
+              }
+            }
+          }
+        ],
         "legend": {
           "showLegend": false,
           "displayMode": "list",
@@ -419,9 +599,9 @@
           "custom": {
             "show": "points",
             "pointSize": {
-              "fixed": 5
+              "fixed": 4
             },
-            "fillOpacity": 60
+            "fillOpacity": 70
           }
         },
         "overrides": [
@@ -436,11 +616,15 @@
                 "value": "celsius"
               },
               {
-                "id": "min",
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.axisSoftMin",
                 "value": 20
               },
               {
-                "id": "max",
+                "id": "custom.axisSoftMax",
                 "value": 30
               }
             ]
@@ -460,12 +644,75 @@
                 "value": 1
               },
               {
-                "id": "min",
+                "id": "custom.axisSoftMin",
                 "value": 5
               },
               {
-                "id": "max",
+                "id": "custom.axisSoftMax",
                 "value": 16
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "時刻"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-blues"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "快適ゾーン"
+            },
+            "properties": [
+              {
+                "id": "custom.show",
+                "value": "lines"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": false,
+                  "legend": true,
+                  "tooltip": true
+                }
               }
             ]
           }
@@ -473,6 +720,10 @@
       },
       "transformations": [
         {
+          "filter": {
+            "id": "byRefId",
+            "options": "A|B|C"
+          },
           "id": "joinByField",
           "options": {
             "byField": "Time",
@@ -484,15 +735,28 @@
         {
           "refId": "A",
           "legendFormat": "室温",
-          "expr": "appliance_room_temp{location=\"home-エアコンB\"}"
+          "expr": "climate_temperature{location=\"home-1F-寝室\"}"
         },
         {
           "refId": "B",
           "legendFormat": "絶対湿度",
-          "expr": "WITH (t = appliance_room_temp{location=\"home-エアコンB\"}, rh = appliance_room_humidity{location=\"home-エアコンB\"}) 216.7 * 6.1094 * exp(17.625 * t / (t + 243.04)) * rh / 100 / (t + 273.15)"
+          "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "時刻",
+          "expr": "timestamp(climate_temperature{location=\"home-1F-寝室\"}) * 1000"
+        },
+        {
+          "refId": "Z",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "ゾーン室温,快適ゾーン\n22,7\n26.5,7\n26.5,12.5\n22,12.5\n22,7"
         }
-      ],
-      "pluginVersion": "13.1.0"
+      ]
     },
     {
       "id": 8,
@@ -697,13 +961,13 @@
       "targets": [
         {
           "refId": "A",
-          "legendFormat": "絶対湿度 エアコンA",
-          "expr": "WITH (t = appliance_room_temp{location=\"home-エアコンA\"}, rh = appliance_room_humidity{location=\"home-エアコンA\"}) 216.7 * 6.1094 * exp(17.625 * t / (t + 243.04)) * rh / 100 / (t + 273.15)"
+          "legendFormat": "絶対湿度 2Fリビング (A)",
+          "expr": "climate_abs_humidity{location=\"home-2F-リビング\"}"
         },
         {
           "refId": "B",
-          "legendFormat": "絶対湿度 エアコンB",
-          "expr": "WITH (t = appliance_room_temp{location=\"home-エアコンB\"}, rh = appliance_room_humidity{location=\"home-エアコンB\"}) 216.7 * 6.1094 * exp(17.625 * t / (t + 243.04)) * rh / 100 / (t + 273.15)"
+          "legendFormat": "絶対湿度 1F寝室 (B)",
+          "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}"
         },
         {
           "refId": "C",
