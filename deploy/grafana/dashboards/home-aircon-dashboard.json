@@ -287,7 +287,7 @@
       "type": "xychart",
       "pluginVersion": "13.1.0",
       "title": "快適マップ 2Fリビング (エアコンA, 24hの軌跡)",
-      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。点の色は時刻 (薄=過去24hの始まり, 濃=いま)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
+      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -296,55 +296,8 @@
       },
       "timeFrom": "24h",
       "options": {
-        "mapping": "manual",
-        "series": [
-          {
-            "frame": {
-              "matcher": {
-                "id": "byIndex",
-                "options": 0
-              }
-            },
-            "x": {
-              "matcher": {
-                "id": "byName",
-                "options": "室温"
-              }
-            },
-            "y": {
-              "matcher": {
-                "id": "byName",
-                "options": "絶対湿度"
-              }
-            },
-            "color": {
-              "matcher": {
-                "id": "byName",
-                "options": "時刻"
-              }
-            }
-          },
-          {
-            "frame": {
-              "matcher": {
-                "id": "byIndex",
-                "options": 1
-              }
-            },
-            "x": {
-              "matcher": {
-                "id": "byName",
-                "options": "ゾーン室温"
-              }
-            },
-            "y": {
-              "matcher": {
-                "id": "byName",
-                "options": "快適ゾーン"
-              }
-            }
-          }
-        ],
+        "mapping": "auto",
+        "series": [],
         "legend": {
           "showLegend": false,
           "displayMode": "list",
@@ -418,24 +371,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "時刻"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "dateTimeAsIso"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "continuous-blues"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "快適ゾーン"
             },
             "properties": [
@@ -484,7 +419,7 @@
         {
           "filter": {
             "id": "byRefId",
-            "options": "A|B|C"
+            "options": "A|B"
           },
           "id": "joinByField",
           "options": {
@@ -505,11 +440,6 @@
           "expr": "climate_abs_humidity{location=\"home-2F-リビング\"}"
         },
         {
-          "refId": "C",
-          "legendFormat": "時刻",
-          "expr": "timestamp(climate_temperature{location=\"home-2F-リビング\"}) * 1000"
-        },
-        {
           "refId": "Z",
           "datasource": {
             "type": "grafana-testdata-datasource",
@@ -525,7 +455,7 @@
       "type": "xychart",
       "pluginVersion": "13.1.0",
       "title": "快適マップ 1F寝室 (エアコンB, 24hの軌跡)",
-      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。点の色は時刻 (薄=過去24hの始まり, 濃=いま)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
+      "description": "緑破線=快適ゾーン (室温22〜26.5℃ × 絶対湿度7〜12.5g/m³)。右に外れ=冷房/設定下げ (日中は日射遮蔽を先に疑う)、上に外れ=除湿、左下=設定上げ。",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -534,55 +464,8 @@
       },
       "timeFrom": "24h",
       "options": {
-        "mapping": "manual",
-        "series": [
-          {
-            "frame": {
-              "matcher": {
-                "id": "byIndex",
-                "options": 0
-              }
-            },
-            "x": {
-              "matcher": {
-                "id": "byName",
-                "options": "室温"
-              }
-            },
-            "y": {
-              "matcher": {
-                "id": "byName",
-                "options": "絶対湿度"
-              }
-            },
-            "color": {
-              "matcher": {
-                "id": "byName",
-                "options": "時刻"
-              }
-            }
-          },
-          {
-            "frame": {
-              "matcher": {
-                "id": "byIndex",
-                "options": 1
-              }
-            },
-            "x": {
-              "matcher": {
-                "id": "byName",
-                "options": "ゾーン室温"
-              }
-            },
-            "y": {
-              "matcher": {
-                "id": "byName",
-                "options": "快適ゾーン"
-              }
-            }
-          }
-        ],
+        "mapping": "auto",
+        "series": [],
         "legend": {
           "showLegend": false,
           "displayMode": "list",
@@ -656,24 +539,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "時刻"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "dateTimeAsIso"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "continuous-blues"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "快適ゾーン"
             },
             "properties": [
@@ -722,7 +587,7 @@
         {
           "filter": {
             "id": "byRefId",
-            "options": "A|B|C"
+            "options": "A|B"
           },
           "id": "joinByField",
           "options": {
@@ -741,11 +606,6 @@
           "refId": "B",
           "legendFormat": "絶対湿度",
           "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}"
-        },
-        {
-          "refId": "C",
-          "legendFormat": "時刻",
-          "expr": "timestamp(climate_temperature{location=\"home-1F-寝室\"}) * 1000"
         },
         {
           "refId": "Z",
