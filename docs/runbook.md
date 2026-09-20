@@ -222,6 +222,11 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
   サイクルごとにリークし、約6時間で dbus-daemon の UID あたり256接続上限に達して
   BLE が全滅する(→ commit `feaf656` で修正。長時間の定期スキャンは
   `collect_ble_readings_async` を単一イベントループから await すること)。
+- **Grafana のプロビジョニング JSON を手書きするとき、パネルに `pluginVersion` を明記する**。
+  無いと「古いバージョンで保存されたパネル」とみなされ、プラグインのマイグレーション処理が
+  現行スキーマの options を旧スキーマ前提で作り直してしまう(xychart で mapping キーが
+  捨てられ No data になった実例)。スキーマの正解は Pi の
+  `/usr/share/grafana/public/app/plugins/panel/<type>/panelcfg.gen.ts` で確認できる。
 - **デプロイ**: GitHub 鍵が ssh-agent に無い環境では `git bundle create` + scp + Pi 側で
   `git fetch <bundle> main` を使う。Mac と Pi の working tree を揃えること。
 - 障害の詳細な経緯は `docs/incidents/` を参照。
