@@ -83,10 +83,10 @@ class TestSyncDataHelpers:
                 ble_targets=[],
                 ble_scan_timeout_s=3.0,
             )
-        # climate 1行 + 居住空間なので PMV シナリオ4行
-        assert len(lines) == 5
+        # climate 1行 + 居住空間なので PMV シナリオ6行
+        assert len(lines) == 7
         assert lines[0].startswith("climate,")
-        assert sum(l.startswith("comfort,") for l in lines) == 4
+        assert sum(l.startswith("comfort,") for l in lines) == 6
         mock_collect.assert_called_once()
 
 
