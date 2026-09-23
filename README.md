@@ -19,7 +19,8 @@ flowchart LR
 
 ## Features
 - SwitchBot: BLE アドバタイズを直接デコード(Meter / Meter Plus / CO2 Meter / Hub 2)。
-  クラウド非依存・API制限なし。温度+湿度から絶対湿度も計算して保存
+  クラウド非依存・API制限なし。温度+湿度から絶対湿度と温熱快適指標 PMV(ISO 7730、
+  着衣量×活動量のシナリオ別)も計算して保存
 - ECHONET Lite: 太陽光の瞬時/積算発電、分電盤の主幹(買電/売電)と回路別28chの瞬時電力、
   エアコン(消費電力・室温・外気温)、エコキュート(消費電力・残湯量)。AiSEG2 履歴CSVの
   過去データ一括取込(`el import-history`)にも対応

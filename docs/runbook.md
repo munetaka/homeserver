@@ -33,6 +33,11 @@
 - ラベル: `location`(例 `home-1F-寝室`。プレフィックスは `.env` の `LOCATION_PREFIX`)、
   `device_id`(BLE MAC または SwitchBot deviceId)、`type`(meter / co2 / hub2)
 - SwitchBot の Cloud API deviceId は **BLE MAC のコロン抜き**(例 `B0E9FE54488F` = `B0:E9:FE:54:48:8F`)
+- 快適指標: `comfort_pmv{location, clo, met}` — ISO 7730 (Fanger) の PMV を sb コレクターが
+  温湿度から毎分計算([comfort.py](../src/cli/comfort.py)。参照実装 pythermalcomfort 3.3.0 と
+  全グリッド一致を確認済み)。仮定: 放射温度=室温(G3住宅なので成立)・気流0.1m/s。
+  シナリオは clo 0.5(夏服)/1.0(冬服)× met 1.1(デスクワーク)/2.0(家事)。
+  屋外・基礎は対象外。|PMV|>3.5 と温度10〜30℃外は保存しない
 - 電力系メトリクス: `power_generation_w`(太陽光)、`power_grid_w`(主幹、正=買電/負=売電)、
   `power_{buy,sell,generation}_total_kwh`(積算)、`power_circuit_watts{circuit="01".."28"}`(回路別)、
   `appliance_{power_w,room_temp,outdoor_temp,setpoint,on,tank_l}`(エアコン/エコキュート)。

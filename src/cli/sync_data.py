@@ -36,6 +36,7 @@ import requests
 import typer
 from dotenv import load_dotenv
 
+from . import comfort
 from .switchbot_ble import (
     BleTarget,
     SwitchBotReading,
@@ -211,6 +212,32 @@ def _reading_to_line(
     return _lp("climate", tags, fields, ts_ms)
 
 
+def _comfort_lines(
+    reading: SwitchBotReading,
+    location_prefix: str,
+    ts_ms: int,
+) -> List[str]:
+    """温湿度から PMV (ISO 7730) を想定シナリオ別に計算して comfort 行にする。
+
+    居住空間のみが対象 (屋外・基礎は PMV の適用範囲外/無意味なので除外)。
+    シナリオ (clo=着衣量, met=代謝量) は comfort.COMBOS を参照。
+    """
+    if reading.temperature is None or reading.humidity is None:
+        return []
+    name = reading.name or ""
+    if "屋外" in name or "基礎" in name:
+        return []
+    lines: List[str] = []
+    for clo, met in comfort.COMBOS:
+        value = comfort.pmv(float(reading.temperature), float(reading.humidity),
+                            met=met, clo=clo)
+        if value is not None:
+            tags = {"location": f"{location_prefix}{name}",
+                    "clo": f"{clo}", "met": f"{met}"}
+            lines.append(_lp("comfort", tags, {"pmv": round(value, 3)}, ts_ms))
+    return lines
+
+
 def _readings_to_lines(
     readings: List[SwitchBotReading],
     location_prefix: str,
@@ -222,6 +249,7 @@ def _readings_to_lines(
         line = _reading_to_line(reading, location_prefix, ef_model, ts_ms)
         if line:
             lines.append(line)
+        lines.extend(_comfort_lines(reading, location_prefix, ts_ms))
     return lines
 
 

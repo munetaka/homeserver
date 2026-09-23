@@ -65,7 +65,7 @@ class TestPushCommand:
             )
 
         assert result.exit_code == 0
-        assert "wrote 1 points" in result.stdout
+        assert "wrote 5 points" in result.stdout  # climate 1行 + comfort (PMV) 4行
         targets, scan_timeout = collect.call_args[0]
         assert targets == [BleTarget(mac="AA:BB:CC:DD:EE:FF", device_type="meter", alias="Living")]
         assert scan_timeout == 5.0
