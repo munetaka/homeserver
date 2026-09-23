@@ -72,3 +72,36 @@ class TestComfortLines:
         r = SwitchBotReading(device_id="AA", name="1F-寝室", device_type="meter",
                              temperature=25.0, humidity=None)
         assert _comfort_lines(r, "home-", 1000) == []
+
+
+class TestPmvHistoryLines:
+    """バックフィル用: /api/v1/export 形式からの過去分計算。"""
+
+    def _row(self, loc, ts_values):
+        return {
+            "metric": {"__name__": "x", "location": loc},
+            "timestamps": [ts for ts, _ in ts_values],
+            "values": [v for _, v in ts_values],
+        }
+
+    def test_pairs_by_location_and_timestamp(self):
+        from cli.sync_data import _pmv_history_lines
+        temp = [self._row("home-1F-書斎", [(1000, 25.0), (2000, 25.5)])]
+        hum = [self._row("home-1F-書斎", [(1000, 50.0), (3000, 55.0)])]  # 2000 は欠け
+        lines = _pmv_history_lines(temp, hum)
+        # 揃った ts=1000 の1点 × 4シナリオのみ
+        assert len(lines) == len(comfort.COMBOS)
+        assert all(" 1000000000" in l for l in lines)
+        assert all(l.startswith("comfort,location=home-1F-書斎,clo=") for l in lines)
+        # ライブ計算 (_comfort_lines) と同じ値になる
+        live = _comfort_lines(
+            SwitchBotReading(device_id="AA", name="1F-書斎", device_type="meter",
+                             temperature=25.0, humidity=50.0), "home-", 1000)
+        assert sorted(lines) == sorted(live)
+
+    def test_excludes_outdoor_and_unmatched_rooms(self):
+        from cli.sync_data import _pmv_history_lines
+        temp = [self._row("home-屋外-玄関", [(1000, 30.0)]),
+                self._row("home-1F-トイレ", [(1000, 25.0)])]
+        hum = [self._row("home-屋外-玄関", [(1000, 60.0)])]  # トイレの湿度なし
+        assert _pmv_history_lines(temp, hum) == []

@@ -1120,18 +1120,18 @@
       "targets": [
         {
           "refId": "A",
+          "legendFormat": "書斎 デスクワーク",
+          "expr": "comfort_pmv{location=\"home-1F-書斎\", clo=\"0.5\", met=\"1.1\"}"
+        },
+        {
+          "refId": "B",
           "legendFormat": "リビング デスクワーク",
           "expr": "comfort_pmv{location=\"home-2F-リビング\", clo=\"0.5\", met=\"1.1\"}"
         },
         {
-          "refId": "B",
+          "refId": "C",
           "legendFormat": "リビング 家事",
           "expr": "comfort_pmv{location=\"home-2F-リビング\", clo=\"0.5\", met=\"2.0\"}"
-        },
-        {
-          "refId": "C",
-          "legendFormat": "寝室 デスクワーク",
-          "expr": "comfort_pmv{location=\"home-1F-寝室\", clo=\"0.5\", met=\"1.1\"}"
         },
         {
           "refId": "D",
@@ -1215,18 +1215,18 @@
       "targets": [
         {
           "refId": "A",
+          "legendFormat": "書斎 デスクワーク",
+          "expr": "comfort_pmv{location=\"home-1F-書斎\", clo=\"1.0\", met=\"1.1\"}"
+        },
+        {
+          "refId": "B",
           "legendFormat": "リビング デスクワーク",
           "expr": "comfort_pmv{location=\"home-2F-リビング\", clo=\"1.0\", met=\"1.1\"}"
         },
         {
-          "refId": "B",
+          "refId": "C",
           "legendFormat": "リビング 家事",
           "expr": "comfort_pmv{location=\"home-2F-リビング\", clo=\"1.0\", met=\"2.0\"}"
-        },
-        {
-          "refId": "C",
-          "legendFormat": "寝室 デスクワーク",
-          "expr": "comfort_pmv{location=\"home-1F-寝室\", clo=\"1.0\", met=\"1.1\"}"
         },
         {
           "refId": "D",

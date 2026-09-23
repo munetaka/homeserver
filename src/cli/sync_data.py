@@ -27,9 +27,11 @@ ENV (.env 推奨):
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import os
 import time
+from functools import lru_cache
 from typing import Annotated, Dict, List, Optional
 
 import requests
@@ -238,6 +240,45 @@ def _comfort_lines(
     return lines
 
 
+@lru_cache(maxsize=200_000)
+def _pmv_cached(t: float, h: float, clo: float, met: float) -> Optional[float]:
+    """センサー値は 0.1℃/1% 刻みなので、バックフィル時はメモ化が大きく効く。"""
+    return comfort.pmv(t, h, met=met, clo=clo)
+
+
+def _pmv_history_lines(temp_rows: List[dict], hum_rows: List[dict]) -> List[str]:
+    """/api/v1/export の行 (metric/values/timestamps) から過去分の comfort 行を作る。
+
+    温度と湿度を (location, timestamp) で突き合わせ、揃った点だけ計算する。
+    location は保存済みラベルをそのまま使う (プレフィックス付与済み)。
+    """
+    hum: Dict[str, Dict[int, float]] = {}
+    for row in hum_rows:
+        loc = row["metric"].get("location", "")
+        by_ts = hum.setdefault(loc, {})
+        for ts, v in zip(row["timestamps"], row["values"]):
+            by_ts[int(ts)] = float(v)
+
+    lines: List[str] = []
+    for row in temp_rows:
+        loc = row["metric"].get("location", "")
+        if "屋外" in loc or "基礎" in loc:
+            continue
+        hum_by_ts = hum.get(loc)
+        if not hum_by_ts:
+            continue
+        for ts, t in zip(row["timestamps"], row["values"]):
+            h = hum_by_ts.get(int(ts))
+            if h is None:
+                continue
+            for clo, met in comfort.COMBOS:
+                value = _pmv_cached(float(t), float(h), clo, met)
+                if value is not None:
+                    tags = {"location": loc, "clo": f"{clo}", "met": f"{met}"}
+                    lines.append(_lp("comfort", tags, {"pmv": round(value, 3)}, int(ts)))
+    return lines
+
+
 def _readings_to_lines(
     readings: List[SwitchBotReading],
     location_prefix: str,
@@ -356,6 +397,52 @@ def push(
 
     _write_influx(lines, influx_url, timeout_s)
     typer.echo(f"wrote {len(lines)} points")
+
+
+@app.command(name="pmv-backfill", help="保存済みの温湿度から過去分の PMV (comfort_pmv) を計算して書き込みます。")
+def pmv_backfill(
+    start: Annotated[str, typer.Option("--start", help="開始日 (YYYY-MM-DD)")],
+    end: Annotated[str, typer.Option("--end", help="終了日 (YYYY-MM-DD, この日を含む)。省略時は今日")] = "",
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="書き込まずに件数だけ表示")] = False,
+):
+    """PMV のシナリオ (comfort.COMBOS) を変えたときの再計算にも使える。
+
+    VM は dedup 有効なので、既存期間への再実行は同タイムスタンプの上書きで収束する。
+    1日ずつ export → 計算 → 書き込みするのでメモリは日単位に収まる。
+    """
+    from datetime import date, datetime, timedelta, timezone
+
+    jst = timezone(timedelta(hours=9))
+    env = _load_env()
+    influx_url = env["INFLUX_URL"]
+    timeout_s = max(60.0, env["REQUEST_TIMEOUT_S"])
+    day = date.fromisoformat(start)
+    last = date.fromisoformat(end) if end else date.today()
+
+    def export(metric: str, t0: int, t1: int) -> List[dict]:
+        r = requests.get(
+            f"{influx_url}/api/v1/export",
+            params={"match[]": metric, "start": t0, "end": t1},
+            timeout=timeout_s,
+        )
+        r.raise_for_status()
+        return [json.loads(line) for line in r.text.splitlines() if line]
+
+    total = 0
+    while day <= last:
+        t0 = int(datetime(day.year, day.month, day.day, tzinfo=jst).timestamp())
+        t1 = t0 + 86400
+        lines = _pmv_history_lines(
+            export("climate_temperature", t0, t1),
+            export("climate_humidity", t0, t1),
+        )
+        if lines and not dry_run:
+            for i in range(0, len(lines), 10000):
+                _write_influx(lines[i:i + 10000], influx_url, timeout_s)
+        total += len(lines)
+        typer.echo(f"{day}: {len(lines)} points")
+        day += timedelta(days=1)
+    typer.echo(f"{'(dry-run) ' if dry_run else ''}backfilled {total} points")
 
 
 @app.command(name="scan-ble", help="BLE スキャンで周囲の SwitchBot デバイス MAC アドレスを取得します。")
