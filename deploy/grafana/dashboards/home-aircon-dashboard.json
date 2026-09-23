@@ -1285,8 +1285,8 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "寝室 冬寝具"
+              "id": "byRegexp",
+              "options": "/冬寝具/"
             },
             "properties": [
               {
@@ -1317,6 +1317,16 @@
           "refId": "B",
           "legendFormat": "寝室 冬寝具",
           "expr": "comfort_pmv{location=\"home-1F-寝室\", clo=\"2.6\", met=\"0.7\"}"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "リビング 夏寝具",
+          "expr": "comfort_pmv{location=\"home-2F-リビング\", clo=\"1.4\", met=\"0.7\"}"
+        },
+        {
+          "refId": "D",
+          "legendFormat": "リビング 冬寝具",
+          "expr": "comfort_pmv{location=\"home-2F-リビング\", clo=\"2.6\", met=\"0.7\"}"
         }
       ],
       "options": {
