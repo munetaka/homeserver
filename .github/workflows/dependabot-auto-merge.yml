@@ -24,7 +24,10 @@ jobs:
           steps.meta.outputs.update-type != 'version-update:semver-major'
           && !contains(steps.meta.outputs.dependency-names, 'bleak')
           && !contains(steps.meta.outputs.dependency-names, 'dbus-fast')
-        run: gh pr merge --auto --squash "$PR_URL"
+        # test が先に終わって PR が既にマージ可能だと、GitHub は auto-merge の予約を
+        # "Pull request is in clean/unstable status" で拒否する (test は約15秒で終わるので頻発)。
+        # その場合は即マージする。直接マージでもルールセットの必須チェック test は強制される
+        run: gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
