@@ -247,7 +247,15 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 
 ## 依存更新(dependabot PR)の取り込み手順
 
-マージ自体は GitHub 上でユーザーが行う(エージェントの gh は仕事用アカウントのため書き込み不可)。
+Dependabot は毎週月曜 06:00 JST に PR を作る。マイナー/パッチ更新は種別ごとに1つの PR に
+まとめられ、[dependabot-auto-merge.yml](../.github/workflows/dependabot-auto-merge.yml) が
+auto-merge を予約し、**CI の `test` が通れば GitHub が自動でマージする**(main のルールセットで
+`test` を必須チェックにしている。ジョブ名を変えると自動マージが止まるので注意)。
+**メジャー更新と bleak / dbus-fast は自動マージしない**(個別 PR のまま残る)ので、
+以下の手順で人がマージする。脆弱性アラート由来の security update PR も同じ扱い。
+手動マージは GitHub 上でユーザーが行う(エージェントの gh は仕事用アカウントのため書き込み不可)。
+
+自動・手動どちらでも、**マージしただけでは Pi に反映されない**ので手順3以降は必要。
 
 1. **マージ前**: ローカルに未プッシュのコミットが無い状態にしておく(あると push 時の
    rebase でハッシュが書き換わり、Pi のチェックアウトと食い違って紛らわしい。
@@ -267,6 +275,14 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 
 手順3〜6は「dependabot をマージしたので影響確認して」とエージェントに頼めば一括で行う。
 **マージしただけでは Pi に反映されない**(Pi は GitHub を見ていない)点に注意。
+自動マージ導入後は GitHub 側に毎週コミットが増えるので、**ローカルで作業を始める前に
+`git pull` する**習慣にすると rebase によるハッシュずれを避けられる。
+
+GitHub 側のセキュリティ設定(2026-10-28 時点): Dependabot alerts / security updates、
+secret scanning + push protection、CodeQL default setup(Python・Actions)を有効化済み。
+Actions の既定トークン権限は Read(ワークフローは必要な権限を YAML で個別に宣言する)。
+actions は `uses:` をコミットハッシュで固定している(タグ書き換え対策。Dependabot が
+ハッシュとコメントのタグを一緒に更新する)。
 
 ## Tips(ハマりどころ)
 

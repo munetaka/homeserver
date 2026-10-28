@@ -1,15 +1,33 @@
 version: 2
 updates:
-  # GitHub Actions (workflows の uses: 行を監視)。
-  # setup-uv は v8 からメジャータグ廃止で完全バージョン固定のため、追従はこれに任せる
+  # GitHub Actions (workflows の uses: 行を監視。コミットハッシュ固定でもコメントのタグごと更新される)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Tokyo"
+    groups:
+      actions:
+        update-types: ["minor", "patch"]
 
   # Python 依存 (pyproject.toml / uv.lock を監視)。
-  # bleak 等ハードウェア絡みのメジャー更新は CI が緑でもラズパイ実機確認をしてからマージする
+  # マイナー/パッチは種別ごとに1つの PR にまとめ、テストが通れば自動マージされる
+  # (.github/workflows/dependabot-auto-merge.yml)。メジャー更新と bleak 系は個別 PR になり、
+  # 手動確認 (bleak は Pi 実機確認) してからマージする
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Tokyo"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      runtime-dependencies:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+        exclude-patterns: ["bleak", "dbus-fast"]

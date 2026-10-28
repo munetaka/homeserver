@@ -5,13 +5,20 @@ on:
     branches: [main]
   pull_request:
 
+# リポジトリ既定も Read だが、ワークフロー単体でも最小権限を明示しておく
+permissions:
+  contents: read
+
 jobs:
+  # ジョブ名 "test" は main のルールセットで必須チェックに指定している (変えると自動マージが止まる)
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      # setup-uv は v8 からメジャータグ (@v8) を公開しないため完全バージョンで指定
-      - uses: astral-sh/setup-uv@v10.2.0
+      # actions はタグ書き換え対策でコミットハッシュ固定。Dependabot がハッシュごと更新する
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Run tests with coverage
         run: uv run pytest --cov
       - name: Coverage summary

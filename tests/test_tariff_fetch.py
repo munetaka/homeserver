@@ -29,6 +29,14 @@ class TestParseFuelTable:
         assert len(published) >= 20
         assert "2024-12" in published
 
+    def test_ignores_other_plan_tables(self):
+        # 実ページには時間帯別プラン等の「燃料費調整単価」表が10個以上並ぶ (fixture は抜粋のみ)。
+        # 「適用年月」見出しを持つ低圧・従量制の表だけを読むこと
+        distractor = ("<table><tr><th>燃料費調整単価</th><th>朝時間</th></tr>"
+                      "<tr><td>2026年</td><td>11月分</td><td>▲0.62</td><td>6.56</td></tr></table>")
+        page = distractor + FIXTURE.read_text(encoding="utf-8")
+        assert tariff_fetch.parse_fuel_table(page)["2026-11"] == pytest.approx(-5.33)
+
     def test_rejects_page_without_table(self):
         with pytest.raises(ValueError):
             tariff_fetch.parse_fuel_table("<html><body>メンテナンス中</body></html>")

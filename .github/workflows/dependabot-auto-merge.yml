@@ -1,0 +1,30 @@
+name: dependabot auto-merge
+
+# Dependabot の PR に「テストが通ったらマージ」(auto-merge) を予約する。
+# 実際のマージ判定は main のルールセット (必須チェック = test) が行うので、
+# このワークフロー自体はテスト結果を待たない。
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    # github.actor は人が再実行すると変わるため、PR の作成者で判定する
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      # 自動マージしないもの (= 手動で確認してマージ):
+      #   - メジャー更新 (破壊的変更の可能性。リリースノートを読む)
+      #   - bleak / dbus-fast (BLE・D-Bus の挙動は CI では検証できない。Pi 実機で確認する)
+      - if: >-
+          steps.meta.outputs.update-type != 'version-update:semver-major'
+          && !contains(steps.meta.outputs.dependency-names, 'bleak')
+          && !contains(steps.meta.outputs.dependency-names, 'dbus-fast')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
