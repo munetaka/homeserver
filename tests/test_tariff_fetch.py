@@ -170,5 +170,5 @@ class TestMonthsAheadAndMetrics:
             ts_ms=1_700_000_000_000)
         assert lines[0] == ("tariff check_ok=1i,months_ahead=1i,code_mismatch=0i "
                             "1700000000000000000")
-        assert lines[1] == "tariff_fuel,month=2026-11,source=code applied_yen=-5.33 1700000000000000000"
-        assert lines[2] == "tariff_fuel,month=2026-12,source=overlay applied_yen=-5.1 1700000000000000000"
+        assert lines[1] == "tariff_fuel,month=2026-11,source=code yen=-5.33 1700000000000000000"
+        assert lines[2] == "tariff_fuel,month=2026-12,source=overlay yen=-5.1 1700000000000000000"

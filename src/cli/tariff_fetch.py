@@ -202,5 +202,6 @@ def build_metric_lines(check_ok: bool, ahead: int, mismatch_count: int,
     lines = [f"tariff check_ok={int(check_ok)}i,months_ahead={ahead}i,"
              f"code_mismatch={mismatch_count}i {ts_ns}"]
     for month, (applied, source) in sorted(applied_rates.items()):
-        lines.append(f"tariff_fuel,month={month},source={source} applied_yen={applied} {ts_ns}")
+        # measurement+field が VM で tariff_fuel_yen になる (cost_day_yen と同じ流儀)
+        lines.append(f"tariff_fuel,month={month},source={source} yen={applied} {ts_ns}")
     return lines
