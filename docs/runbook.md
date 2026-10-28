@@ -4,13 +4,32 @@
 
 ## 構成概要
 
-```
-[SwitchBot センサー 11台] --BLE advertisement--> [Raspberry Pi 4 (raspi4-homeserver)]
-                                                    switchbot.service (60秒ごとにスキャン)
-                                                        ↓ line protocol (/api/v2/write)
-                                                    VictoriaMetrics :8428 (retention 100y)
-                                                        ↓ PromQL             ↓ 毎日03:30 snapshot
-                                                    Grafana :3000        vm-backup.timer → pCloud
+```mermaid
+flowchart LR
+    subgraph 収集["収集 (常駐, 60秒ごと)"]
+        SB["switchbot.service<br>sb run"]
+        EL["echonet.service<br>el run"]
+    end
+    S["SwitchBot ×11"] -- "BLE advertisement" --> SB
+    P["計測ユニット .10 / エアコン .12 .181<br>/ エコキュート .169"] -- "ECHONET Lite UDP 3610" --> EL
+    SB -- "line protocol<br>/api/v2/write" --> VM[("VictoriaMetrics :8428<br>retention 100y")]
+    EL -- "line protocol" --> VM
+    VM -- PromQL --> G["Grafana :3000"]
+
+    subgraph 料金["電気料金 (定期ジョブ)"]
+        TF["tariff-fetch.timer 毎週月曜06:30<br>el tariff-fetch"]
+        CU["cost-update.timer 毎日00:20<br>el cost-update"]
+    end
+    T["TEPCO 燃調一覧 (Web)"] -- HTTPS --> TF
+    TF -- "検証OKの新月のみ追記" --> OV[/"var/fuel_adjustment.json<br>(overlay)"/]
+    TP["tariff.py の定数<br>(請求書で校正・常に優先)"] --> CU
+    OV --> CU
+    VM -- "日次 kWh" --> CU
+    CU -- "cost_day / cost_period / cost_year" --> VM
+    TF -- "tariff_* (状態・単価)" --> VM
+
+    WD["collector-watchdog.timer 5分"] -. "鮮度監視 → 自動再起動" .-> 収集
+    BK["vm-backup.timer 毎日03:30"] -- "snapshot + .env + overlay" --> PC[("pCloud")]
 ```
 
 | 項目 | 値 |
@@ -20,6 +39,7 @@
 | コレクター(温湿度) | `switchbot.service`: `/opt/homeserver` で `uv run sb run --interval 60 --mode ble --ble-scan-timeout 20` |
 | コレクター(電力) | `echonet.service`: `uv run el run --interval 60`。ECHONET Lite (UDP 3610) で太陽光/分電盤(回路別28ch)/エアコン2台/エコキュートを読む。対象は `.env` の `ECHONET_DEVICES` |
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
+| 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
 | 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。すべてプロビジョニング管理 → `deploy/grafana/` |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
@@ -45,7 +65,12 @@
   計算し直す。dedup 有効なので既存期間への再実行は上書きで収束)
 - 電力系メトリクス: `power_generation_w`(太陽光)、`power_grid_w`(主幹、正=買電/負=売電)、
   `power_{buy,sell,generation}_total_kwh`(積算)、`power_circuit_watts{circuit="01".."28"}`(回路別)、
-  `appliance_{power_w,room_temp,outdoor_temp,setpoint,on,tank_l}`(エアコン/エコキュート)。
+  `appliance_{on,power_w,tank_l}`(エアコン/エコキュート共通・エコキュートのみ)、
+  エアコンのみ `appliance_{energy_total_kwh,room_temp,room_humidity,outdoor_temp,setpoint,
+  dehum_setpoint_humidity,mode}`。`energy_total_kwh` は機器の積算電力量(0.001kWh、日次の
+  消費量は `increase()` で出す)。`mode` は 1=自動/2=冷房/3=暖房/4=除湿/5=送風 で、停止中も
+  最後のモードを返すため、ダッシュボードでは `appliance_mode * appliance_on`(0=停止)で表示。
+  `setpoint` は除湿・自動運転時に機器が「設定なし」(0xFD)を返すので欠測になるのが正常。
   総消費は保存せず `sum(power_generation_w) + sum(power_grid_w)` で導出する。
   比率系も保存せずダッシュボードで導出: **自家消費率** = (発電−売電)/発電(発電をどれだけ
   使い切れたか)、**自給率** = (発電−売電)/総消費(消費をどれだけ発電で賄えたか)。
@@ -96,6 +121,10 @@
   (日次の上書きは VM の `-dedup.minScrapeInterval=1ms` で単一サンプルに収束するが、
   値が下がる方向の修正は max 優先の dedup に負けるため、消して再計算が確実)。
   請求書との差異は月0.3〜0.5kWh・10〜15円程度(内訳は下記「請求書と計測値の差異」参照)
+- サーバー監視系のメトリクス: `node_*`(node_exporter)、`rpi_*`(スロットリング、textfile)、
+  `collector_watchdog_*`(発火回数・データ鮮度、textfile)、`vm_*`(VictoriaMetrics 自身)。
+  システムメトリクスは約800系列 × 60秒間隔で**年間 1GB 弱**消費する。ディスクが厳しくなったら
+  古い `node_*` だけ delete API で間引く選択肢がある(センサーデータは消さない)
 
 ## 請求書と計測値の差異について (2026-07-15 調査済み)
 
@@ -120,10 +149,6 @@ TEPCO請求書の使用量と当システムの買電合計は月0.3〜0.5kWh �
 となり、請求値 326 に一致する期間ズレは存在しない。期間定義は「開始日0時〜終了日24時(JST)」で正しい。
 再調査する場合は AiSEG2 の履歴エクスポートに含まれる `30minhistory_sm_1_*` / `hourhistory_sm_1_*`
 (検針メーター側の値)と `_rc_`(CT側)を期間合計して比較する。
-- サーバー監視系のメトリクス: `node_*`(node_exporter)、`rpi_*`(スロットリング、textfile)、
-  `collector_watchdog_*`(発火回数・データ鮮度、textfile)、`vm_*`(VictoriaMetrics 自身)。
-  システムメトリクスは約800系列 × 60秒間隔で**年間 1GB 弱**消費する。ディスクが厳しくなったら
-  古い `node_*` だけ delete API で間引く選択肢がある(センサーデータは消さない)
 
 ## 湿度系の計算式の選定理由
 
@@ -139,7 +164,7 @@ SwitchBot アプリの絶対湿度と当システムの値が 1% 弱ずれるの
 湿度が整数(±0.5%RH)、②アプリは増強係数なしの Magnus 系と推定、の合算で説明でき、
 センサー自体の精度(±1.8%RH ≈ 絶対湿度 0.4 g/m³)より十分小さい。
 
-## 機器一覧(最終更新 2026-07-15)
+## 機器一覧(最終更新 2026-10-28)
 
 **BLE 温湿度センサー(SwitchBot)— 全11台稼働中**:
 WoIOSensor(防水温湿度計)×9、MeterPro(CO2)×1(1F-寝室)、Hub 2 ×1(1F-ユーティリティ)。
@@ -153,7 +178,7 @@ type は meter/co2/hub2)を編集して `sudo systemctl restart switchbot.servic
 | IP | 機器 | 収集クラス |
 | --- | --- | --- |
 | 192.168.11.10 | エネルギー計測ユニット MKN7350S1 | 太陽光発電 + 分電盤メータリング(回路別28ch) |
-| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力・室温・外気温・設定温度(自己申告、100W/1℃刻み)。**設置部屋: A=2F-リビング、B=1F-寝室**(高精度の温湿度は同室の SwitchBot センサーを使う) |
+| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力(100W刻みの目安)・積算電力量(0.001kWh)・室温/室内湿度・外気温・設定温度・除湿設定湿度・運転モード(温湿度は自己申告で1℃/1%刻み)。**設置部屋: A=2F-リビング、B=1F-寝室**(高精度の温湿度は同室の SwitchBot センサーを使う) |
 | 192.168.11.169 | ダイキン エコキュート | 消費電力・残湯量(50L刻み) |
 | 192.168.11.216 | AiSEG2(コントローラ) | 収集対象外(ECHONET照会に応答しない) |
 
@@ -169,7 +194,7 @@ IP は DHCP 予約で固定を推奨。追加・変更は `.env` の `ECHONET_DE
    curl -sG "http://localhost:8428/api/v1/query" --data-urlencode "query=count(climate_temperature)"
    ```
    結果が空 = 直近5分のデータなし。
-2. サービス状態: `systemctl status switchbot victoria-metrics grafana-server`
+2. サービス状態: `systemctl status switchbot echonet victoria-metrics grafana-server`
 3. コレクターのログ: `sudo journalctl -u switchbot.service -n 30`
    - **`D-Bus AccessDenied` が毎分出続ける / 1サイクルも完了しない** → まず
      `sudo journalctl -u dbus.service | grep maximum` を確認。
@@ -187,6 +212,25 @@ IP は DHCP 予約で固定を推奨。追加・変更は `.env` の `ECHONET_DE
    ```bash
    cd /opt/homeserver && sudo -E env "PATH=$HOME/.local/bin:$PATH" uv run sb scan-ble --timeout-s 30
    ```
+
+### 電気料金のグラフ(検針期間別の棒など)が止まった
+
+kWh 系のグラフは出ているのに料金系だけ新しい日・期間が出ない場合、ほぼ確実に
+**その請求月の燃調単価が未登録**(cost-update は未登録月を警告してスキップする)。
+
+1. 電力ダッシュボード最下段の「燃調自動取得」stat を見る。**充足=要確認(赤)** なら未登録が確定。
+   取得=要確認なら TEPCO ページの取得/解析失敗、照合=要確認なら登録値と公表値の不一致
+2. ログ確認(Pi 上): `sudo journalctl -u tariff-fetch.service -u cost-update.service -n 30`
+   (`warn: ...` に拒否・不一致の理由が出る)。手元確認は
+   `cd /opt/homeserver && PATH="$HOME/.local/bin:$PATH" uv run el tariff-fetch --dry-run`
+3. 公表タイミングの目安: 「N月分」は2ヶ月前の月末ごろに公表される(例: 12月分=請求期間
+   11/10〜12/9 は 10月末)。正常なら請求月が切り替わる10日の時点で既に登録済みなので、
+   **充足が赤 = 公表後の月曜の自動取得が失敗し続けた**と考えてよい(TEPCO の公表遅れは稀)
+4. **自動取得が壊れている**(ページ構成変更・検証で拒否)なら、従来どおり tariff.py の
+   `FUEL_ADJUSTMENT_YEN` に**支援反映前**の値を手で登録 → テスト → コミット → デプロイ。
+   parser の修正時は新しいページを `tests/fixtures/` に保存して回帰テストを更新する
+5. 単価が入ったら影響期間を再計算: `uv run el cost-update --since <その検針期間の開始日>`
+   (既定の40日窓だと期間の途中から始まり、完結済み期間が「データ欠け」でスキップされることがある)
 
 ### ディスクが逼迫した
 
@@ -206,7 +250,9 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 マージ自体は GitHub 上でユーザーが行う(エージェントの gh は仕事用アカウントのため書き込み不可)。
 
 1. **マージ前**: ローカルに未プッシュのコミットが無い状態にしておく(あると push 時の
-   rebase でハッシュが書き換わり、Pi のチェックアウトと食い違って紛らわしい)。
+   rebase でハッシュが書き換わり、Pi のチェックアウトと食い違って紛らわしい。
+   起きてしまったら `scripts/deploy-to-pi.sh` を再実行すれば Pi は `checkout -B` で新しい
+   ハッシュに揃う。2026-10-28 に実際に発生し、この方法で解消)。
    PR の CI(test + shellcheck)が green なことを確認。メジャー更新
    (例: setup-uv v8→v10)だけはリリースノートの破壊的変更に目を通す
 2. **マージ**: GitHub 上で PR をマージ(複数あればまとめて)
@@ -240,6 +286,16 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
   (→ [2026-07-20 の障害記録](incidents/2026-07-20-daily-panel-stale-carry.md))。
 - **VM への書き込みは InfluxDB v2 互換**(`/api/v2/write`)なのでコレクターのコードは
   InfluxDB / VictoriaMetrics のどちらにも書ける。bucket / token パラメータは VM では無視される。
+- **line protocol のメトリクス名は `<measurement>_<field>` になる**。`tariff_fuel ... applied_yen=`
+  と書いたら `tariff_fuel_applied_yen` になり、ダッシュボードが参照する `tariff_fuel_yen` と
+  食い違った(2026-10-28)。新しいメトリクスはクエリ側の名前から逆算して field 名を決め、
+  書いた直後に `/api/v1/series` で実名を確認する。名前を間違えた系列は `delete_series` で掃除する。
+- **既存メトリクスにラベルを足すと別系列になる**(旧系列はラベル無しのまま残り、
+  `last_over_time` などで二重に拾われる)。cost_* のような導出データなら
+  `delete_series` → `el cost-update --since 2025-06-01` で全再作成するのが簡単
+  (2026-10-28 に `cost_period_yen` へ year/mm を追加したときの手順)。
+- **TEPCO の Web サイトはブラウザ以外の User-Agent に 403 を返す**。`el tariff-fetch` は
+  ブラウザ UA を名乗っている。手動で調べるときも `curl -A "Mozilla/5.0 ..."` を付ける。
 - **SwitchBot BLE デコードの罠**: 湿度バイトの bit7 は「本体の表示単位が°F」を示すだけで、
   値は常に摂氏(過去に華氏変換して −4℃ を記録するバグがあった → commit `6a563e3`)。
   Hub 2 は manufacturer data の bytes 13–15 に温湿度、バッテリー報告なし(→ commit `5f8e452`)。

@@ -40,7 +40,7 @@
 4. 上記マッピング通りにファイルを配置して:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer
+   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer rpi-metrics.timer
    ```
 5. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
    (未設定の間 vm-backup.sh はスキップ動作)。
@@ -61,5 +61,13 @@
    tar のルートには `.env`(コレクターの設定・SwitchBotトークン・BLEデバイスリスト)と
    `var/fuel_adjustment.json`(燃調単価 overlay、存在する場合)も含まれるので、
    それぞれ `/opt/homeserver/` 直下の同じ相対パスに配置する(`.env` は chmod 640)。
+7. 燃調 overlay が無い場合(バックアップに含まれていない等)は `el tariff-fetch` を1回実行すれば
+   TEPCO が公表中の月を再取得する。cost_* はバックアップに含まれるが、作り直すなら続けて全再計算:
+   ```bash
+   cd /opt/homeserver
+   export PATH="$HOME/.local/bin:$PATH"
+   uv run el tariff-fetch
+   uv run el cost-update --since 2025-06-01
+   ```
 
 詳細な運用手順・障害対応は [docs/runbook.md](../docs/runbook.md) を参照。
