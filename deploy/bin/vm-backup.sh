@@ -10,12 +10,15 @@ trap 'curl -s -X POST "http://localhost:8428/snapshot/delete?snapshot=$SNAP" >/d
 TARBALL="/tmp/vm-backup.tar.gz"
 # スナップショットは4箇所に分散する (snapshots/=メタデータ, data/*/snapshots/=実データの
 # ハードリンク)。全てを相対パス構造ごと tar しないと空バックアップになる
+# 復元に必要なリポジトリ外の実行時ファイル (.env=認証情報, var/=燃調 overlay)
+RUNTIME_FILES=(.env)
+[ -f /opt/homeserver/var/fuel_adjustment.json ] && RUNTIME_FILES+=(var/fuel_adjustment.json)
 tar czf "$TARBALL" -C /var/lib/victoria-metrics \
   "snapshots/$SNAP" \
   "data/big/snapshots/$SNAP" \
   "data/small/snapshots/$SNAP" \
   "data/indexdb/snapshots/$SNAP" \
-  -C /opt/homeserver .env
+  -C /opt/homeserver "${RUNTIME_FILES[@]}"
 rclone copyto "$TARBALL" "pcloud:homeserver-backup/vm-backup-latest.tar.gz"
 # 週次の世代コピー (日曜)
 if [ "$(date +%u)" = "7" ]; then

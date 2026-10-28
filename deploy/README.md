@@ -12,6 +12,8 @@
 | `systemd/echonet.service` | `/etc/systemd/system/echonet.service` |
 | `systemd/collector-watchdog.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/vm-backup.service` / `.timer` | `/etc/systemd/system/` |
+| `systemd/cost-update.service` / `.timer` | `/etc/systemd/system/` |
+| `systemd/tariff-fetch.service` / `.timer` | `/etc/systemd/system/` |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |
 | `systemd/rpi-metrics.service` / `.timer` | `/etc/systemd/system/` |
@@ -38,7 +40,7 @@
 4. 上記マッピング通りにファイルを配置して:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable --now victoria-metrics switchbot grafana-server collector-watchdog.timer vm-backup.timer
+   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer
    ```
 5. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
    (未設定の間 vm-backup.sh はスキップ動作)。
@@ -56,7 +58,8 @@
    ```
    ※ スナップショットは snapshots/(メタデータ)と data/{big,small,indexdb}/snapshots/
    (実データ)の4箇所に分散する点に注意(vm-backup.sh はこの4箇所を tar している)。
-   tar のルートには `.env`(コレクターの設定・SwitchBotトークン・BLEデバイスリスト)も
-   含まれるので、`/opt/homeserver/.env` に配置して chmod 640 する。
+   tar のルートには `.env`(コレクターの設定・SwitchBotトークン・BLEデバイスリスト)と
+   `var/fuel_adjustment.json`(燃調単価 overlay、存在する場合)も含まれるので、
+   それぞれ `/opt/homeserver/` 直下の同じ相対パスに配置する(`.env` は chmod 640)。
 
 詳細な運用手順・障害対応は [docs/runbook.md](../docs/runbook.md) を参照。

@@ -1,6 +1,6 @@
 # Runbook — 自宅センサー収集システム
 
-最終更新: 2026-07-06
+最終更新: 2026-10-28
 
 ## 構成概要
 
@@ -24,7 +24,8 @@
 | 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。すべてプロビジョニング管理 → `deploy/grafana/` |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
-| バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット → pCloud `homeserver-backup/` |
+| バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |
+| 料金更新 | `cost-update.timer`(毎日00:20): `el cost-update`。`tariff-fetch.timer`(毎週月曜06:30): `el tariff-fetch` で燃調単価を自動取得(詳細は「メトリクスのデータモデル」の燃調節) |
 
 ## メトリクスのデータモデル
 
@@ -67,8 +68,21 @@
   (くらし上手L + 燃調月別テーブル + 賦課金 + 軽減措置 + FIT16円)で、**実請求書2ヶ月分を
   1円単位で再現**することをテストで担保(請求書の「電力量料金」「賦課金」は各々円未満切捨て)。
   計算は `cost-update.timer`(毎日00:20)が `el cost-update` を実行して書き込む。
-  **単価改定・燃調の新月分・軽減措置は tariff.py を手で更新**(未登録月は警告してスキップ)。
-  燃調は 2026-11 分まで登録済み(国の料金支援は 2026-10 分で終了)。
+  燃調は 2026-11 分まで定数登録済み(国の料金支援は 2026-10 分で終了)。
+- **燃調単価の自動取得**: `tariff-fetch.timer`(毎週月曜 06:30)が `el tariff-fetch` で
+  TEPCO の燃調一覧(低圧・従量制・税込)を取得し、tariff.py 未登録の新しい請求月を
+  overlay `/opt/homeserver/var/fuel_adjustment.json`(git 管理外・追記のみ・pCloud
+  バックアップ対象)へ書き足す。一覧ページの掲載値は支援値引き**反映後**の適用単価で、
+  overlay はそれをそのまま持つ(請求計算は fuel+subsidy の和しか使わないため二重計上に
+  ならない構造。2026-08 の二重計上事故の対策)。同月は tariff.py の定数が常に優先なので、
+  **請求書で校正したら定数へ「昇格」させる**(overlay 側の掃除は不要)。検証(正気範囲
+  ±25/15円・月の連続性・登録値と公表値の照合)に通らない値は書かずに警告する。
+  状態は電力ダッシュボード最下段の stat 2枚で監視: 「料金テーブル残量」
+  (`tariff_headroom_months`: 負=料金グラフ停止中=赤、0=黄、1以上=緑)と
+  「燃調自動取得」(`tariff_check_ok` / `tariff_code_mismatch`)。
+  ページ構成変更などで取得が壊れても残量が減って期限前に赤くなる(サイレント故障しない)。
+  手動確認は `uv run el tariff-fetch --dry-run`。
+  なお軽減措置(SUBSIDY_YEN)と賦課金・基本単価の改定は従来どおり手動更新。
   **2026-11-01 の託送料金改定**でくらし上手の基本単価も変わる見込みのため、
   2026-12 請求書が届いたら実額で校正して BASE/TIER 定数を更新すること(tariff.py の TODO 参照)。
   **cost_* 系列は全て導出データ**なので、料金モデルを修正したら

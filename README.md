@@ -81,6 +81,7 @@ ECHONET_CIRCUIT_EXCLUDE=26,28
 | `ECHONET_TIMEOUT_S` | optional | ECHONET Lite 応答タイムアウト秒(default `3`)。 |
 | `ECHONET_CIRCUIT_NAMES` | optional | 分電盤の回路番号→名称(`1=リビング,...`)。`name` タグとして付与。 |
 | `ECHONET_CIRCUIT_EXCLUDE` | optional | 収集から除外する回路番号(未使用回路)。 |
+| `TARIFF_OVERLAY_PATH` | optional | `el tariff-fetch` が書く燃調単価 overlay の場所(default: リポジトリ直下 `var/fuel_adjustment.json`)。 |
 
 `@type` accepts values such as `meter`, `co2`, `hub2`, or the raw code label (`code_0x35`) if the device is unknown.
 
@@ -126,6 +127,8 @@ uv run el scan --subnet 192.168.11   # LAN上の ECHONET Lite 機器を発見
 uv run el push                        # 1回収集して書き込み
 uv run el run --interval 60           # 常駐ループ (echonet.service が使用)
 uv run el import-history <dir> --max-day YYYYMMDD   # AiSEG2 履歴CSVの一括取込
+uv run el cost-update                 # 日次kWhの実体化と電気料金メトリクスの更新 (cost-update.timer が毎晩実行)
+uv run el tariff-fetch [--dry-run]    # TEPCO 燃調単価の自動取得 → overlay 追記 (tariff-fetch.timer が週次実行)
 ```
 
 対象機器は `ECHONET_DEVICES`(`IP@type[=alias]` のカンマ区切り、type: solar/powerboard/aircon/ecocute)、

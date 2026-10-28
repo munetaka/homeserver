@@ -1,0 +1,12 @@
+[Unit]
+Description=Fetch TEPCO fuel adjustment rates into tariff overlay
+After=victoria-metrics.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homeserver
+ExecStart=/home/homepi/.local/bin/uv run el tariff-fetch
+User=homepi
+Group=homepi

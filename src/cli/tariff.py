@@ -5,13 +5,19 @@
 1円未満の誤差で再現することをテストで担保している。
 
 検針は毎月10日〆: 請求期間は「前月10日〜当月9日」で、燃料費調整単価は請求月のものを適用する。
-単価改定時はこのファイルの定数を更新する(履歴が git に残る)。
+単価改定時はこのファイルの定数を更新する(履歴が git に残る)。燃調の新しい月は
+`el tariff-fetch` (週次 timer) が overlay (var/fuel_adjustment.json) へ自動追記して
+つなぐので、定数側は請求書での校正タイミングで更新すればよい。
 """
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from dataclasses import dataclass
 from datetime import date, timedelta
+from pathlib import Path
 
 # --- くらし上手L (2026-07 請求書より) -------------------------------------
 BASE_MONTHLY_YEN = 4257.0        # 基本料金 (10kVA, 検針期間の日数に依らず月額固定)
@@ -54,6 +60,41 @@ SUBSIDY_YEN = {
     "2026-08": -3.5, "2026-09": -4.5, "2026-10": -3.5,
 }
 
+# --- 自動取得分の overlay (el tariff-fetch が書く速報値) ---------------------
+# FUEL_ADJUSTMENT_YEN に無い月だけ補完する。格納値は TEPCO 一覧ページの掲載単価 =
+# 国の支援等の値引き「反映後」の適用値。請求計算はどこでも fuel+subsidy の和しか
+# 使わないため、反映後値をそのまま fuel 側に入れても金額は正しい (SUBSIDY_YEN に
+# 登録がある月だけ内訳を分解する)。請求書で校正したらこのファイルの定数へ「昇格」
+# させる (overlay は追記のみで、同月は定数が常に優先)。
+OVERLAY_PATH_ENV = "TARIFF_OVERLAY_PATH"
+_DEFAULT_OVERLAY_PATH = Path(__file__).resolve().parents[2] / "var" / "fuel_adjustment.json"
+_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+def overlay_path() -> Path:
+    return Path(os.getenv(OVERLAY_PATH_ENV) or _DEFAULT_OVERLAY_PATH)
+
+
+def load_overlay(path: Path | None = None) -> dict[str, float]:
+    """overlay の {請求月: 適用単価} を返す。壊れた/無いファイルは空扱い。"""
+    try:
+        data = json.loads((path or overlay_path()).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    months: dict[str, float] = {}
+    for month, entry in data.items():
+        if (_MONTH_RE.match(str(month)) and isinstance(entry, dict)
+                and isinstance(entry.get("applied_yen"), (int, float))):
+            months[month] = float(entry["applied_yen"])
+    return months
+
+
+def registered_months() -> set[str]:
+    """単価が解決できる請求月 (定数 + overlay)。"""
+    return set(FUEL_ADJUSTMENT_YEN) | set(load_overlay())
+
 
 def billing_month(day: date) -> str:
     """日付が属する請求月 (10日〆)。6/10〜7/9 → "2026-07"。"""
@@ -95,13 +136,15 @@ class MonthlyRates:
 
 
 def rates_for(month: str) -> MonthlyRates:
-    if month not in FUEL_ADJUSTMENT_YEN:
-        raise KeyError(f"燃料費調整単価が未登録の月です: {month} (tariff.py を更新してください)")
-    return MonthlyRates(
-        fuel=FUEL_ADJUSTMENT_YEN[month],
-        levy=_levy_for(month),
-        subsidy=SUBSIDY_YEN.get(month, 0.0),
-    )
+    subsidy = SUBSIDY_YEN.get(month, 0.0)
+    if month in FUEL_ADJUSTMENT_YEN:
+        return MonthlyRates(fuel=FUEL_ADJUSTMENT_YEN[month], levy=_levy_for(month), subsidy=subsidy)
+    overlay = load_overlay()
+    if month in overlay:
+        # overlay は反映後の適用値。fuel+subsidy がその値になるよう fuel 側を逆算する
+        return MonthlyRates(fuel=overlay[month] - subsidy, levy=_levy_for(month), subsidy=subsidy)
+    raise KeyError(f"燃料費調整単価が未登録の月です: {month} "
+                   "(el tariff-fetch の実行か tariff.py の更新が必要)")
 
 
 def marginal_buy_rate_yen(month: str) -> float:

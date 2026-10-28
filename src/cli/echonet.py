@@ -695,6 +695,53 @@ def cost_update(
         typer.echo(f"wrote {len(year_lines)} year points")
 
 
+@app.command(name="tariff-fetch", help="TEPCO の燃調単価一覧を取得し、未登録の請求月を overlay に追記します (週次 timer 用)。")
+def tariff_fetch_cmd(
+    url: Annotated[str, typer.Option("--url", help="取得元 (既定: TEPCO 低圧の燃調一覧)")] = "",
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="overlay とメトリクスを書かずに結果表示のみ")] = False,
+):
+    from datetime import date, datetime
+
+    from . import tariff
+    from . import tariff_fetch as tf
+
+    env = _load_env()
+    today = date.today()  # Pi は JST 運用
+    check_ok = True
+    added: dict[str, float] = {}
+    mismatch_count = 0
+    try:
+        html = tf.fetch_html(url or tf.TEPCO_LIST_URL, env["REQUEST_TIMEOUT_S"])
+        published = tf.parse_fuel_table(html)
+        overlay_before = tariff.load_overlay()
+        plan = tf.plan_overlay_update(
+            published, tariff.FUEL_ADJUSTMENT_YEN, tariff.SUBSIDY_YEN, overlay_before)
+        for msg in plan.rejected:
+            typer.echo(f"warn: {msg}")
+        for msg in plan.mismatches:
+            typer.echo(f"warn: 公表値と不一致: {msg}")
+        mismatch_count = len(plan.mismatches)
+        added = plan.added
+        if added and not dry_run:
+            tf.append_overlay(tariff.overlay_path(), added,
+                              fetched_at=datetime.now().astimezone().isoformat(timespec="seconds"))
+    except Exception as exc:  # noqa: BLE001 — 取得/解析失敗は check_ok=0 で可視化して続行
+        check_ok = False
+        typer.echo(f"error: {exc}")
+    headroom = tf.headroom_months(today)
+    overlay_now = tariff.load_overlay()
+    lines = tf.build_metric_lines(check_ok, headroom, mismatch_count, overlay_now,
+                                  ts_ms=int(datetime.now().timestamp() * 1000))
+    if dry_run:
+        typer.echo(f"(dry-run) added={added or 'none'} metrics={lines}")
+    else:
+        _write_influx(lines, env)
+        typer.echo(f"added={list(added) or 'none'} registered-max={max(tariff.registered_months())} "
+                   f"headroom={headroom} check_ok={int(check_ok)}")
+    if not check_ok or headroom < 0:
+        raise typer.Exit(code=1)
+
+
 @app.command(help="指定間隔で読み取りを繰り返します (systemd 常駐用)。")
 def run(
     interval: Annotated[int, typer.Option("--interval", "-i", min=10)] = 60,
