@@ -138,23 +138,37 @@ class TestRatesWithOverlay:
             tariff.rates_for("2028-01")
 
 
-class TestHeadroomAndMetrics:
-    def test_headroom_months(self, tmp_path, monkeypatch):
+class TestMonthsAheadAndMetrics:
+    def test_months_ahead(self, tmp_path, monkeypatch):
         monkeypatch.setenv(tariff.OVERLAY_PATH_ENV, str(tmp_path / "missing.json"))
         # 登録最大 2026-11 / 10月28日の請求月は 2026-11 → 先行 0ヶ月
-        assert tariff_fetch.headroom_months(date(2026, 10, 28)) == 0
-        assert tariff_fetch.headroom_months(date(2026, 9, 5)) == 2
-        assert tariff_fetch.headroom_months(date(2026, 12, 10)) == -2  # 既に未登録期間
+        assert tariff_fetch.months_ahead(date(2026, 10, 28)) == 0
+        assert tariff_fetch.months_ahead(date(2026, 9, 5)) == 2
+        assert tariff_fetch.months_ahead(date(2026, 12, 10)) == -2  # 既に未登録期間
 
-    def test_headroom_counts_overlay(self, tmp_path, monkeypatch):
+    def test_months_ahead_counts_overlay(self, tmp_path, monkeypatch):
         path = tmp_path / "fuel_adjustment.json"
         tariff_fetch.append_overlay(path, {"2026-12": -5.10}, "t")
         monkeypatch.setenv(tariff.OVERLAY_PATH_ENV, str(path))
-        assert tariff_fetch.headroom_months(date(2026, 10, 28)) == 1
+        assert tariff_fetch.months_ahead(date(2026, 10, 28)) == 1
+
+    def test_recent_applied_rates_merges_both_layers(self, tmp_path, monkeypatch):
+        path = tmp_path / "fuel_adjustment.json"
+        tariff_fetch.append_overlay(path, {"2026-12": -5.10}, "t")
+        monkeypatch.setenv(tariff.OVERLAY_PATH_ENV, str(path))
+        rates = tariff_fetch.recent_applied_rates(date(2026, 10, 28), back=2)
+        # 請求月 2026-11 の2ヶ月前 = 2026-09 から登録最大 2026-12 まで
+        assert sorted(rates) == ["2026-09", "2026-10", "2026-11", "2026-12"]
+        assert rates["2026-09"] == (-10.96, "code")  # 定数は反映後に換算 (-6.46 + -4.5)
+        assert rates["2026-10"] == (-9.30, "code")
+        assert rates["2026-11"] == (-5.33, "code")
+        assert rates["2026-12"] == (-5.10, "overlay")
 
     def test_metric_lines(self):
         lines = tariff_fetch.build_metric_lines(
-            True, 1, 0, {"2026-12": -5.1}, ts_ms=1_700_000_000_000)
-        assert lines[0] == ("tariff check_ok=1i,headroom_months=1i,code_mismatch=0i "
+            True, 1, 0, {"2026-12": (-5.1, "overlay"), "2026-11": (-5.33, "code")},
+            ts_ms=1_700_000_000_000)
+        assert lines[0] == ("tariff check_ok=1i,months_ahead=1i,code_mismatch=0i "
                             "1700000000000000000")
-        assert lines[1] == "tariff_fuel,month=2026-12,source=overlay applied_yen=-5.1 1700000000000000000"
+        assert lines[1] == "tariff_fuel,month=2026-11,source=code applied_yen=-5.33 1700000000000000000"
+        assert lines[2] == "tariff_fuel,month=2026-12,source=overlay applied_yen=-5.1 1700000000000000000"

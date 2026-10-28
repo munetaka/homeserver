@@ -171,16 +171,36 @@ def append_overlay(path: Path, added: Dict[str, float], fetched_at: str) -> None
     os.replace(tmp, path)
 
 
-def headroom_months(today: date) -> int:
-    """登録済み最大月が今日の請求月より何ヶ月先か (負 = 既にグラフが止まっている)。"""
+def months_ahead(today: date) -> int:
+    """登録済み最大月が今日の請求月より何ヶ月先か (負 = 既に料金グラフが止まっている)。"""
     return _month_index(max(tariff.registered_months())) - _month_index(tariff.billing_month(today))
 
 
-def build_metric_lines(check_ok: bool, headroom: int, mismatch_count: int,
-                       overlay: Dict[str, float], ts_ms: int) -> List[str]:
+def recent_applied_rates(today: date, back: int = 2) -> Dict[str, tuple[float, str]]:
+    """ダッシュボードの単価テーブル用に {請求月: (適用単価, 出どころ)} を返す。
+
+    範囲は「現在の請求月 - back」〜登録済み最大月。定数側は fuel+subsidy を
+    反映後 (適用値) に換算して overlay と同じ土俵に揃える。
+    """
+    overlay = tariff.load_overlay()
+    start = _month_index(tariff.billing_month(today)) - back
+    rates: Dict[str, tuple[float, str]] = {}
+    for month in sorted(tariff.registered_months()):
+        if _month_index(month) < start:
+            continue
+        if month in tariff.FUEL_ADJUSTMENT_YEN:
+            applied = tariff.FUEL_ADJUSTMENT_YEN[month] + tariff.SUBSIDY_YEN.get(month, 0.0)
+            rates[month] = (round(applied, 2), "code")
+        else:
+            rates[month] = (overlay[month], "overlay")
+    return rates
+
+
+def build_metric_lines(check_ok: bool, ahead: int, mismatch_count: int,
+                       applied_rates: Dict[str, tuple[float, str]], ts_ms: int) -> List[str]:
     ts_ns = ts_ms * 1_000_000
-    lines = [f"tariff check_ok={int(check_ok)}i,headroom_months={headroom}i,"
+    lines = [f"tariff check_ok={int(check_ok)}i,months_ahead={ahead}i,"
              f"code_mismatch={mismatch_count}i {ts_ns}"]
-    for month, applied in sorted(overlay.items()):
-        lines.append(f"tariff_fuel,month={month},source=overlay applied_yen={applied} {ts_ns}")
+    for month, (applied, source) in sorted(applied_rates.items()):
+        lines.append(f"tariff_fuel,month={month},source={source} applied_yen={applied} {ts_ns}")
     return lines

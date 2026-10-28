@@ -1406,9 +1406,9 @@
     },
     {
       "id": 60,
-      "type": "stat",
-      "title": "料金テーブル残量 (燃調の先行登録)",
-      "description": "登録済みの燃料費調整単価が現在の請求月より何ヶ月先まであるか。0=今月まで(月末の公表で自動補充されるはず) / 負=既に料金グラフが止まっている。週次の el tariff-fetch が更新する。",
+      "type": "table",
+      "title": "燃調単価テーブル (登録済み・反映後の適用値)",
+      "description": "直近の請求月に適用される燃料費調整単価。出どころ: 定数=tariff.py (請求書で校正済み) / 自動取得=週次 el tariff-fetch の速報値 (請求書が来たら定数へ昇格)。翌月分の行が月末の公表後に自動で増える。",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -1416,44 +1416,82 @@
         "y": 54
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "graphMode": "none"
+        "sortBy": [
+          {
+            "displayName": "請求月",
+            "desc": true
+          }
+        ]
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix:ヶ月",
-          "decimals": 0,
-          "noValue": "未実行",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+          "custom": {
+            "align": "left"
+          },
+          "noValue": "未実行"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "適用単価 (円/kWh)"
+            },
+            "properties": [
               {
-                "color": "red",
-                "value": null
-              },
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "出どころ"
+            },
+            "properties": [
               {
-                "color": "yellow",
-                "value": 0
-              },
-              {
-                "color": "green",
-                "value": 1
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "code": {
+                        "text": "定数 (校正済み)"
+                      },
+                      "overlay": {
+                        "text": "自動取得",
+                        "color": "blue"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           }
-        },
-        "overrides": []
+        ]
       },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "month": "請求月",
+              "source": "出どころ",
+              "Value": "適用単価 (円/kWh)"
+            }
+          }
+        }
+      ],
       "targets": [
         {
           "refId": "A",
-          "expr": "last_over_time(tariff_headroom_months[8d])",
-          "legendFormat": "先行登録",
-          "instant": true
+          "expr": "last_over_time(tariff_fuel_yen[8d])",
+          "instant": true,
+          "format": "table"
         }
       ]
     },
@@ -1461,7 +1499,7 @@
       "id": 61,
       "type": "stat",
       "title": "燃調自動取得 (週次 tariff-fetch)",
-      "description": "取得=TEPCO 一覧ページの取得・解析の成否。照合=登録済み単価と公表値の一致 (不一致はタイポか支援の未登録)。",
+      "description": "取得=TEPCO 一覧ページの取得・解析の成否。照合=登録済み単価と公表値の一致 (不一致はタイポか支援の未登録)。充足=現在の請求月の単価が登録済みか (赤=料金グラフが止まっている)。",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -1522,6 +1560,12 @@
           "refId": "B",
           "expr": "1 - clamp_max(last_over_time(tariff_code_mismatch[8d]), 1)",
           "legendFormat": "照合",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "last_over_time(tariff_months_ahead[8d]) >= bool 0",
+          "legendFormat": "充足",
           "instant": true
         }
       ]

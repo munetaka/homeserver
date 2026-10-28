@@ -728,17 +728,17 @@ def tariff_fetch_cmd(
     except Exception as exc:  # noqa: BLE001 — 取得/解析失敗は check_ok=0 で可視化して続行
         check_ok = False
         typer.echo(f"error: {exc}")
-    headroom = tf.headroom_months(today)
-    overlay_now = tariff.load_overlay()
-    lines = tf.build_metric_lines(check_ok, headroom, mismatch_count, overlay_now,
+    ahead = tf.months_ahead(today)
+    lines = tf.build_metric_lines(check_ok, ahead, mismatch_count,
+                                  tf.recent_applied_rates(today),
                                   ts_ms=int(datetime.now().timestamp() * 1000))
     if dry_run:
         typer.echo(f"(dry-run) added={added or 'none'} metrics={lines}")
     else:
         _write_influx(lines, env)
         typer.echo(f"added={list(added) or 'none'} registered-max={max(tariff.registered_months())} "
-                   f"headroom={headroom} check_ok={int(check_ok)}")
-    if not check_ok or headroom < 0:
+                   f"months-ahead={ahead} check_ok={int(check_ok)}")
+    if not check_ok or ahead < 0:
         raise typer.Exit(code=1)
 
 
