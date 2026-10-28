@@ -1405,14 +1405,81 @@
       "timeFrom": "7d"
     },
     {
+      "id": 62,
+      "type": "barchart",
+      "title": "請求額の前年比較 (請求月別)",
+      "description": "検針期間 (10日〆) の請求見込みを請求月の月番号で揃えて年ごとに並べる。データは 2025-07 請求分から。",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "showValue": "never",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "kind": true,
+              "month": true
+            }
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "year",
+            "rowField": "mm",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "mm\\year"
+              }
+            ]
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(cost_period_yen{kind=\"bill\"}[3y])",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
       "id": 60,
       "type": "table",
       "title": "燃調単価テーブル (登録済み・反映後の適用値)",
-      "description": "直近の請求月に適用される燃料費調整単価。出どころ: 定数=tariff.py (請求書で校正済み) / 自動取得=週次 el tariff-fetch の速報値 (請求書が来たら定数へ昇格)。翌月分の行が月末の公表後に自動で増える。",
+      "description": "直近1年+先行分の請求月に適用される燃料費調整単価。出どころ: 定数=tariff.py (請求書で校正済み) / 自動取得=週次 el tariff-fetch の速報値 (請求書が来たら定数へ昇格)。翌月分の行が月末の公表後に自動で増える。",
       "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 0,
+        "h": 8,
+        "w": 7,
+        "x": 12,
         "y": 54
       },
       "options": {
@@ -1501,9 +1568,9 @@
       "title": "燃調自動取得 (週次 tariff-fetch)",
       "description": "取得=TEPCO 一覧ページの取得・解析の成否。照合=登録済み単価と公表値の一致 (不一致はタイポか支援の未登録)。充足=現在の請求月の単価が登録済みか (赤=料金グラフが止まっている)。",
       "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 6,
+        "h": 8,
+        "w": 5,
+        "x": 19,
         "y": 54
       },
       "options": {

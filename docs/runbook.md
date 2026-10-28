@@ -63,8 +63,10 @@
   (経緯は [docs/incidents/2026-07-20-daily-panel-stale-carry.md](incidents/2026-07-20-daily-panel-stale-carry.md))
   AiSEG2 の時間単位履歴は約94日で上書き消失するため、追加救出は不可能(以降はライブ収集が上位互換)
 - 電気料金メトリクス: `cost_day_yen{kind=buy|savings|sell_income}`(日次、限界単価ベース)と
-  `cost_period_yen{kind=bill|savings|sell_income, month}`(検針期間=10日〆の合計。bill は
-  基本料金・定額込みの請求見込み)。料金モデルは [tariff.py](../src/cli/tariff.py)
+  `cost_period_yen{kind=bill|savings|sell_income, month, year, mm}`(検針期間=10日〆の合計。
+  bill は基本料金・定額込みの請求見込み。year/mm は month の分解で、前年同月比較パネルが
+  `mm` を行・`year` を系列にした barchart で使う — 期間開始が毎月10日固定のため
+  時刻オフセットでの前年比較は閏年でズレる)。料金モデルは [tariff.py](../src/cli/tariff.py)
   (くらし上手L + 燃調月別テーブル + 賦課金 + 軽減措置 + FIT16円)で、**実請求書2ヶ月分を
   1円単位で再現**することをテストで担保(請求書の「電力量料金」「賦課金」は各々円未満切捨て)。
   計算は `cost-update.timer`(毎日00:20)が `el cost-update` を実行して書き込む。

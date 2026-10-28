@@ -141,6 +141,7 @@ class TestBuildCostLines:
         bill_line = next(l for l in period_lines if "kind=bill" in l)
         assert f"yen={expected_bill}" in bill_line
         assert "month=2026-07" in bill_line
+        assert "year=2026,mm=07" in bill_line  # 前年比較パネルが使う冗長ラベル
         # 期間メトリクスのタイムスタンプは期間開始日 (6/10)
         assert str(day_ts_ms(date(2026, 6, 10)) * 1_000_000) in bill_line
 

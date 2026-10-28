@@ -176,7 +176,7 @@ def months_ahead(today: date) -> int:
     return _month_index(max(tariff.registered_months())) - _month_index(tariff.billing_month(today))
 
 
-def recent_applied_rates(today: date, back: int = 2) -> Dict[str, tuple[float, str]]:
+def recent_applied_rates(today: date, back: int = 12) -> Dict[str, tuple[float, str]]:
     """ダッシュボードの単価テーブル用に {請求月: (適用単価, 出どころ)} を返す。
 
     範囲は「現在の請求月 - back」〜登録済み最大月。定数側は fuel+subsidy を

@@ -230,8 +230,10 @@ def build_cost_lines(daily: Dict[date, Dict[str, float]], today: date) -> Tuple[
         if period_days[month] == 0:
             continue
         ts_ns = day_ts_ms(start) * 1_000_000
+        # year/mm は前年同月比較パネル用の冗長ラベル (month="2026-07" → year=2026, mm=07)
+        tags = f"month={month},year={month[:4]},mm={month[5:7]}"
         bill = tariff.period_bill_yen(month, acc["buy_kwh"])
-        period_lines.append(f"cost_period,kind=bill,month={month} yen={round(bill, 2)} {ts_ns}")
-        period_lines.append(f"cost_period,kind=savings,month={month} yen={round(acc['savings'], 2)} {ts_ns}")
-        period_lines.append(f"cost_period,kind=sell_income,month={month} yen={round(acc['sell_income'], 2)} {ts_ns}")
+        period_lines.append(f"cost_period,kind=bill,{tags} yen={round(bill, 2)} {ts_ns}")
+        period_lines.append(f"cost_period,kind=savings,{tags} yen={round(acc['savings'], 2)} {ts_ns}")
+        period_lines.append(f"cost_period,kind=sell_income,{tags} yen={round(acc['sell_income'], 2)} {ts_ns}")
     return lines + period_lines, warnings
