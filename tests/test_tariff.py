@@ -60,10 +60,16 @@ class TestRates:
         # 「燃調(反映前) + 支援値引き」が TEPCO 公表の反映後単価と一致すること。
         # FUEL_ADJUSTMENT_YEN に反映後の値を入れると二重計上になる回帰ガード
         # (2026-08 で実際に起きた)
-        for month, published_after in {"2026-08": -10.27, "2026-09": -10.96}.items():
+        for month, published_after in {"2026-08": -10.27, "2026-09": -10.96, "2026-10": -9.30}.items():
             r = tariff.rates_for(month)
             assert r.fuel + r.subsidy == pytest.approx(published_after), month
             assert r.fuel > published_after, f"{month}: fuel が反映後の値になっていないか?"
+
+    def test_november_has_no_subsidy(self):
+        # 国の電気・ガス料金支援は 2026-10 分で終了 (TEPCO 2026-08-28 リリース)
+        r = tariff.rates_for("2026-11")
+        assert r.fuel == pytest.approx(-5.33)
+        assert r.subsidy == 0.0
 
     def test_levy_fiscal_year_boundary(self):
         assert tariff.rates_for("2026-04").levy == 3.98  # 2025年度分
