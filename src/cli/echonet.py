@@ -205,6 +205,10 @@ class EchonetClient:
         self._tid = int(time.time()) & 0x7FFF
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # ECHONET Lite 機器は応答を要求元の送信ポートでなく 3610 宛てに返すので 3610 で待つ。
+        # Pi の LAN アドレスは DHCP で変わり得るため特定 IP には bind しない
+        # (CodeQL py/bind-socket-all-network-interfaces は Won't fix 扱い)。
+        # 受信は get() が送信先 IP・TID・SEOJ の一致する応答だけ採用する
         self.sock.bind(("0.0.0.0", PORT))
         self.sock.settimeout(self.timeout_s)
 
