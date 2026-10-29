@@ -289,8 +289,9 @@ auto-merge を予約し、**CI の `test` が通れば GitHub が自動でマー
 `git pull` する**習慣にすると rebase によるハッシュずれを避けられる。
 
 GitHub 側のセキュリティ設定(2026-10-29 時点): Dependabot alerts / security updates /
-malware alerts、secret scanning + push protection、CodeQL default setup(Python・Actions)を
-有効化済み。malware alerts の自動却下ルール(auto-triage)は作らない(依存は約40個で量が少なく、
+malware alerts、secret scanning + push protection、CodeQL default setup(Python・Actions)、
+private vulnerability reporting(既定設定のまま。窓口は SECURITY.md)を有効化済み。
+非公開の脆弱性報告が届いたら Security → Advisories に出る(通知メールも来る)。malware alerts の自動却下ルール(auto-triage)は作らない(依存は約40個で量が少なく、
 マルウェアは1件も見逃したくないため)。CodeQL の指摘は1件ずつ「直す」か「理由を付けて Dismiss」に
 仕分ける(Copilot Autofix の案は下書き扱い。例: echonet.py の 0.0.0.0 bind は Won't fix)。
 Actions の既定トークン権限は Read(ワークフローは必要な権限を YAML で個別に宣言する)。

@@ -46,6 +46,7 @@ flowchart LR
 - [docs/incidents/](docs/incidents/) — 障害記録(ポストモーテム)
 - [deploy/README.md](deploy/README.md) — systemd ユニット・スクリプト・Grafana 設定の原本と再構築手順
 - [AGENTS.md](AGENTS.md) — エージェント向け作業規約(デプロイ・ドキュメント更新の決まり)
+- [SECURITY.md](SECURITY.md) — 脆弱性の報告窓口(GitHub の private vulnerability reporting)
 
 ## Repository layout
 
