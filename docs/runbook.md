@@ -109,9 +109,10 @@ flowchart LR
   VM の dedup は同一時刻を max で潰すため書き直しが効かない → **発表から6時間経って確定した時刻だけを
   一度ずつ書く**(書き込み済みの最新時刻を VM に聞いて続きから。長期停止後も自動で埋まるのは
   直近30日以内に書き込みがある場合。それより古い穴や初回は `el weather-backfill --start YYYY-MM-DD`)。
-  過去分は 2025-06-01(電力の日次データの開始)から補完する。地点は `.env` の `WEATHER_LAT` /
-  `WEATHER_LON`(公開リポジトリには書かない)。屋外の実測は別に SwitchBot `屋外-玄関`(温湿度)と
-  エアコン室外機の外気温(`appliance_outdoor_temp`、温度のみ)がある。
+  過去分は 2025-06-01(電力の日次データの開始)から補完済み(2026-10-29、12,367時間)。地点は `.env` の
+  `WEATHER_LAT` / `WEATHER_LON`(小数2桁に丸める。公開リポジトリには書かない)。屋外の実測は別に
+  SwitchBot `屋外-玄関`(温湿度)とエアコン室外機の外気温(`appliance_outdoor_temp`、温度のみ)がある。
+  `屋外-玄関` は MSM より平均 +1.3℃ 高い(直近30日の毎時比較、差のσ 1.0℃、相関 0.95。建物・日射の影響)。
 - **燃調単価の自動取得**: `tariff-fetch.timer`(毎週月曜 06:30)が `el tariff-fetch` で
   TEPCO の燃調一覧(低圧・従量制・税込)を取得し、tariff.py 未登録の新しい請求月を
   overlay `/opt/homeserver/var/fuel_adjustment.json`(git 管理外・追記のみ・pCloud
