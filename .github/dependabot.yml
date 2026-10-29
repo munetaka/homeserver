@@ -15,7 +15,7 @@ updates:
   # Python 依存 (pyproject.toml / uv.lock を監視)。
   # マイナー/パッチは種別ごとに1つの PR にまとめ、テストが通れば自動マージされる
   # (.github/workflows/dependabot-auto-merge.yml)。メジャー更新と bleak 系は個別 PR になり、
-  # 手動確認 (bleak は Pi 実機確認) してからマージする
+  # 手動確認 (bleak は Pi 実機確認) してからマージする。certifi はメジャーでも自動マージ (日付バージョンのため)
   - package-ecosystem: "uv"
     directory: "/"
     schedule:

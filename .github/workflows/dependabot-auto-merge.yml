@@ -20,8 +20,12 @@ jobs:
       # 自動マージしないもの (= 手動で確認してマージ):
       #   - メジャー更新 (破壊的変更の可能性。リリースノートを読む)
       #   - bleak / dbus-fast (BLE・D-Bus の挙動は CI では検証できない。Pi 実機で確認する)
+      # 例外: certifi 単独の PR はメジャーでも自動マージする。日付バージョン (2025.x→2026.x) で
+      # 年が変わるたびにメジャー扱いになるが、中身は CA 証明書リスト (データ) だけで、
+      # 危殆化した CA の除去など急ぎのセキュリティ更新が多いため
       - if: >-
-          steps.meta.outputs.update-type != 'version-update:semver-major'
+          (steps.meta.outputs.update-type != 'version-update:semver-major'
+           || steps.meta.outputs.dependency-names == 'certifi')
           && !contains(steps.meta.outputs.dependency-names, 'bleak')
           && !contains(steps.meta.outputs.dependency-names, 'dbus-fast')
         # test が先に終わって PR が既にマージ可能だと、GitHub は auto-merge の予約を
