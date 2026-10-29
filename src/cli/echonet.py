@@ -502,6 +502,8 @@ def _load_env() -> dict:
         "ECHONET_TIMEOUT_S": float(os.getenv("ECHONET_TIMEOUT_S", "3")),
         "ECHONET_CIRCUIT_NAMES": os.getenv("ECHONET_CIRCUIT_NAMES", ""),
         "ECHONET_CIRCUIT_EXCLUDE": os.getenv("ECHONET_CIRCUIT_EXCLUDE", ""),
+        "WEATHER_LAT": os.getenv("WEATHER_LAT", ""),
+        "WEATHER_LON": os.getenv("WEATHER_LON", ""),
     }
 
 
@@ -744,6 +746,64 @@ def tariff_fetch_cmd(
                    f"months-ahead={ahead} check_ok={int(check_ok)}")
     if not check_ok or ahead < 0:
         raise typer.Exit(code=1)
+
+
+def _weather_location(env: dict):
+    from . import weather as wx
+
+    try:
+        return wx.parse_location(env["WEATHER_LAT"], env["WEATHER_LON"])
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command(name="weather-update", help="気象庁MSMの毎時気象 (Open-Meteo) のうち確定済みの未取り込み分を書き込みます (毎時 timer 用)。")
+def weather_update(
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="書き込まずに件数と範囲を表示のみ")] = False,
+):
+    from datetime import datetime
+
+    from . import weather as wx
+
+    env = _load_env()
+    loc = _weather_location(env)
+    now = datetime.now().astimezone()
+    last = wx.last_written(env["INFLUX_URL"], env["REQUEST_TIMEOUT_S"])
+    start, end, after = wx.update_window(now, last)
+    rows = {}
+    if start <= end:
+        rows = wx.select_rows(wx.fetch_hourly(loc, start, end, env["REQUEST_TIMEOUT_S"]),
+                              after, wx.settled_until(now))
+    lines = wx.build_lines(rows)
+    span = (f"{datetime.fromtimestamp(min(rows)).astimezone():%m-%d %H:%M}"
+            f"〜{datetime.fromtimestamp(max(rows)).astimezone():%m-%d %H:%M}") if rows else "-"
+    if not dry_run and lines:
+        _write_influx(lines, env)
+    typer.echo(f"{'(dry-run) ' if dry_run else ''}wrote {len(lines)} hours ({span})")
+
+
+@app.command(name="weather-backfill", help="気象庁MSMの毎時気象を指定日から確定済みの時刻まで遡って書き込みます。")
+def weather_backfill(
+    start: Annotated[str, typer.Option("--start", help="開始日 YYYY-MM-DD (UTC日付)")],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="書き込まずに件数のみ表示")] = False,
+):
+    from datetime import date, datetime, timezone
+
+    from . import weather as wx
+
+    env = _load_env()
+    loc = _weather_location(env)
+    until = wx.settled_until(datetime.now().astimezone())
+    total = 0
+    for s, e in wx.date_chunks(date.fromisoformat(start),
+                               datetime.fromtimestamp(until, timezone.utc).date()):
+        lines = wx.build_lines(wx.select_rows(
+            wx.fetch_hourly(loc, s, e, env["REQUEST_TIMEOUT_S"]), None, until))
+        if lines and not dry_run:
+            _write_influx(lines, env)
+        total += len(lines)
+        typer.echo(f"{s}〜{e}: {len(lines)} hours")
+    typer.echo(f"{'(dry-run) ' if dry_run else ''}total {total} hours")
 
 
 @app.command(help="指定間隔で読み取りを繰り返します (systemd 常駐用)。")

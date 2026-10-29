@@ -28,6 +28,9 @@ flowchart LR
     CU -- "cost_day / cost_period / cost_year" --> VM
     TF -- "tariff_* (状態・単価)" --> VM
 
+    OM["Open-Meteo (気象庁 MSM)"] -- "HTTPS 毎時" --> WU["weather-update.timer 毎時:20<br>el weather-update"]
+    WU -- "weather_* (確定済みの毎時値)" --> VM
+
     WD["collector-watchdog.timer 5分"] -. "鮮度監視 → 自動再起動" .-> 収集
     BK["vm-backup.timer 毎日03:30"] -- "snapshot + .env + overlay" --> PC[("pCloud")]
 ```
@@ -45,6 +48,7 @@ flowchart LR
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |
+| 気象取込 | `weather-update.timer`(毎時:20): `el weather-update` で気象庁 MSM の毎時気象を取り込む。地点は `.env` の `WEATHER_LAT` / `WEATHER_LON`(詳細は「メトリクスのデータモデル」の気象節) |
 | 料金更新 | `cost-update.timer`(毎日00:20): `el cost-update`。`tariff-fetch.timer`(毎週月曜06:30): `el tariff-fetch` で燃調単価を自動取得(詳細は「メトリクスのデータモデル」の燃調節) |
 
 ## メトリクスのデータモデル
@@ -96,6 +100,18 @@ flowchart LR
   1円単位で再現**することをテストで担保(請求書の「電力量料金」「賦課金」は各々円未満切捨て)。
   計算は `cost-update.timer`(毎日00:20)が `el cost-update` を実行して書き込む。
   燃調は 2026-11 分まで定数登録済み(国の料金支援は 2026-10 分で終了)。
+- **気象(気象庁 MSM)**: `weather-update.timer`(毎時:20)が `el weather-update` で Open-Meteo の
+  Historical Forecast API(`models=jma_msm`、約5km格子・毎時)から取得し `weather_<field>{source="jma_msm"}` に書く。
+  field: `temp_c` / `humidity_pct` / `dewpoint_c` / `precip_mm` / `cloud_pct` / `wind_ms` / `wind_dir_deg` /
+  `ghi_wm2`(全天日射)/ `direct_wm2` / `diffuse_wm2`(直達・散乱は全天からの推定値)。
+  値は各予報ランの先頭数時間をつないだ「モデルによる実況推定」で観測値ではない。降水・日射は
+  **その時刻までの1時間**の合計/平均(13:00 の値 = 12:00〜13:00)、気温・湿度・風は瞬時値。
+  VM の dedup は同一時刻を max で潰すため書き直しが効かない → **発表から6時間経って確定した時刻だけを
+  一度ずつ書く**(書き込み済みの最新時刻を VM に聞いて続きから。長期停止後も自動で埋まるのは
+  直近30日以内に書き込みがある場合。それより古い穴や初回は `el weather-backfill --start YYYY-MM-DD`)。
+  過去分は 2025-06-01(電力の日次データの開始)から補完する。地点は `.env` の `WEATHER_LAT` /
+  `WEATHER_LON`(公開リポジトリには書かない)。屋外の実測は別に SwitchBot `屋外-玄関`(温湿度)と
+  エアコン室外機の外気温(`appliance_outdoor_temp`、温度のみ)がある。
 - **燃調単価の自動取得**: `tariff-fetch.timer`(毎週月曜 06:30)が `el tariff-fetch` で
   TEPCO の燃調一覧(低圧・従量制・税込)を取得し、tariff.py 未登録の新しい請求月を
   overlay `/opt/homeserver/var/fuel_adjustment.json`(git 管理外・追記のみ・pCloud
@@ -164,7 +180,7 @@ SwitchBot アプリの絶対湿度と当システムの値が 1% 弱ずれるの
 湿度が整数(±0.5%RH)、②アプリは増強係数なしの Magnus 系と推定、の合算で説明でき、
 センサー自体の精度(±1.8%RH ≈ 絶対湿度 0.4 g/m³)より十分小さい。
 
-## 機器一覧(最終更新 2026-10-28)
+## 機器一覧(最終更新 2026-10-29)
 
 **BLE 温湿度センサー(SwitchBot)— 全11台稼働中**:
 WoIOSensor(防水温湿度計)×9、MeterPro(CO2)×1(1F-寝室)、Hub 2 ×1(1F-ユーティリティ)。
@@ -178,7 +194,7 @@ type は meter/co2/hub2)を編集して `sudo systemctl restart switchbot.servic
 | IP | 機器 | 収集クラス |
 | --- | --- | --- |
 | 192.168.11.10 | エネルギー計測ユニット MKN7350S1 | 太陽光発電 + 分電盤メータリング(回路別28ch) |
-| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力(100W刻みの目安)・積算電力量(0.001kWh)・室温/室内湿度・外気温・設定温度・除湿設定湿度・運転モード(温湿度は自己申告で1℃/1%刻み)。**設置部屋: A=2F-リビング、B=1F-寝室**(高精度の温湿度は同室の SwitchBot センサーを使う) |
+| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力(100W刻みの目安)・積算電力量(0.001kWh)・室温/室内湿度・外気温・設定温度・除湿設定湿度・運転モード(温湿度は自己申告で1℃/1%刻み)。**設定温度も1℃単位**(ECHONET の 0xB3 は整数で、リモコンの 0.5℃ は届かない。26.5℃は 26 として記録されるとみられる。メーカー独自プロパティ・ローカル HTTP API とも無し=2026-10-29 確認。自動制御でも書き込みは1℃単位になる)。送風モード中は設定温度が未定義(0xFD)で記録されない。**設置部屋: A=2F-リビング、B=1F-寝室**(高精度の温湿度は同室の SwitchBot センサーを使う) |
 | 192.168.11.169 | ダイキン エコキュート | 消費電力・残湯量(50L刻み) |
 | 192.168.11.216 | AiSEG2(コントローラ) | 収集対象外(ECHONET照会に応答しない) |
 

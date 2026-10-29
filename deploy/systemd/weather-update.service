@@ -1,0 +1,12 @@
+[Unit]
+Description=Import settled hourly JMA MSM weather (Open-Meteo) into VictoriaMetrics
+After=victoria-metrics.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homeserver
+ExecStart=/home/homepi/.local/bin/uv run el weather-update
+User=homepi
+Group=homepi

@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly JMA MSM weather import
+
+[Timer]
+OnCalendar=*-*-* *:20:00
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

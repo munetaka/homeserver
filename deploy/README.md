@@ -14,6 +14,7 @@
 | `systemd/vm-backup.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/cost-update.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/tariff-fetch.service` / `.timer` | `/etc/systemd/system/` |
+| `systemd/weather-update.service` / `.timer` | `/etc/systemd/system/` |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |
 | `systemd/rpi-metrics.service` / `.timer` | `/etc/systemd/system/` |
@@ -40,7 +41,7 @@
 4. 上記マッピング通りにファイルを配置して:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer rpi-metrics.timer
+   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer weather-update.timer rpi-metrics.timer
    ```
 5. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
    (未設定の間 vm-backup.sh はスキップ動作)。
@@ -69,5 +70,7 @@
    uv run el tariff-fetch
    uv run el cost-update --since 2025-06-01
    ```
+   気象(`weather_*`)もバックアップに含まれる。欠けていれば `.env` に `WEATHER_LAT` / `WEATHER_LON`
+   があることを確認して `uv run el weather-backfill --start 2025-06-01` で取り直せる。
 
 詳細な運用手順・障害対応は [docs/runbook.md](../docs/runbook.md) を参照。

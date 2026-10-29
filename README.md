@@ -5,7 +5,8 @@
 
 - **`sb`** — SwitchBot 温湿度/CO2センサー(BLE アドバタイズ直接受信)
 - **`el`** — ECHONET Lite 経由の電力系(太陽光発電・分電盤の回路別消費・エアコン・エコキュート)
-  と、電気料金の計算(`el cost-update`)・燃料費調整単価の自動取得(`el tariff-fetch`)
+  と、電気料金の計算(`el cost-update`)・燃料費調整単価の自動取得(`el tariff-fetch`)・
+  気象庁 MSM の毎時気象の取込(`el weather-update`)
 
 ```mermaid
 flowchart LR
@@ -23,6 +24,9 @@ flowchart LR
     CU -- "円換算 (cost_*)" --> VM
     TF -. "取得状態・単価 (tariff_*)" .-> VM
 
+    OM["Open-Meteo<br>(気象庁 MSM 5km)"] -- "毎時 HTTPS" --> WU["el weather-update<br>(weather-update.timer)"]
+    WU -- "確定済みの毎時気象 (weather_*)" --> VM
+
     WD["watchdog"] -. 鮮度監視 .-> VM
     VM -. 毎晩バックアップ .-> PC[("pCloud")]
     OV -. 毎晩バックアップ .-> PC
@@ -39,6 +43,9 @@ flowchart LR
   検針期間(10日〆)・暦年の請求見込み/自家消費の節約額/売電収入を算出(実請求書を1円単位で
   再現することをテストで担保)。燃調単価の新しい月は週次で TEPCO から自動取得し、
   請求書での校正前でもグラフが止まらない
+- 気象: 気象庁 MSM(Open-Meteo 経由、約5km格子・毎時)の気温・湿度・露点・降水・雲量・風・日射
+  (全天/直達/散乱)を取込。空調の自動制御に向けた分析(天気と室温・電力の突き合わせ)の材料。
+  過去分は `el weather-backfill` で遡れる
 - 耐障害設計: 連続エラー時のプロセス自己再起動 + データ鮮度 watchdog(詳細は runbook)
 
 ## Documentation
@@ -52,7 +59,7 @@ flowchart LR
 
 | パス | 内容 |
 | --- | --- |
-| `src/cli/` | 実装。`sync_data.py` = sb、`switchbot_ble.py` = BLEデコード、`comfort.py` = PMV、`echonet.py` = el、`cost.py` = 料金メトリクス計算、`tariff.py` = 料金モデルと単価テーブル、`tariff_fetch.py` = 燃調の自動取得・検証 |
+| `src/cli/` | 実装。`sync_data.py` = sb、`switchbot_ble.py` = BLEデコード、`comfort.py` = PMV、`echonet.py` = el、`cost.py` = 料金メトリクス計算、`tariff.py` = 料金モデルと単価テーブル、`tariff_fetch.py` = 燃調の自動取得・検証、`weather.py` = 気象庁MSM の毎時気象の取込 |
 | `deploy/` | Pi 上の成果物の原本(systemd / スクリプト / Grafana 設定) |
 | `docs/` | runbook と障害記録 |
 | `scripts/` | 運用スクリプト(`deploy-to-pi.sh`、`health-check.sh`、`gen_comfort_zone.py` = 快適マップのゾーン生成) |
@@ -99,6 +106,7 @@ ECHONET_CIRCUIT_EXCLUDE=26,28
 | `ECHONET_CIRCUIT_NAMES` | optional | 分電盤の回路番号→名称(`1=リビング,...`)。`name` タグとして付与。 |
 | `ECHONET_CIRCUIT_EXCLUDE` | optional | 収集から除外する回路番号(未使用回路)。 |
 | `TARIFF_OVERLAY_PATH` | optional | `el tariff-fetch` が書く燃調単価 overlay の場所(default: リポジトリ直下 `var/fuel_adjustment.json`)。 |
+| `WEATHER_LAT` / `WEATHER_LON` | weather のみ | `el weather-update` / `weather-backfill` が気象を取る地点。MSM は約5km格子なので小数2桁に丸めてよい。公開リポジトリなので実値は `.env` にだけ書く。 |
 
 `@type` accepts values such as `meter`, `co2`, `hub2`, or the raw code label (`code_0x35`) if the device is unknown.
 
@@ -146,6 +154,8 @@ uv run el run --interval 60           # 常駐ループ (echonet.service が使�
 uv run el import-history <dir> --max-day YYYYMMDD   # AiSEG2 履歴CSVの一括取込
 uv run el cost-update                 # 日次kWhの実体化と電気料金メトリクスの更新 (cost-update.timer が毎晩実行)
 uv run el tariff-fetch [--dry-run]    # TEPCO 燃調単価の自動取得 → overlay 追記 (tariff-fetch.timer が週次実行)
+uv run el weather-update [--dry-run]  # 気象庁MSMの毎時気象を確定済みの未取込分だけ書き込み (weather-update.timer が毎時実行)
+uv run el weather-backfill --start YYYY-MM-DD   # 毎時気象を指定日から遡って取込
 ```
 
 対象機器は `ECHONET_DEVICES`(`IP@type[=alias]` のカンマ区切り、type: solar/powerboard/aircon/ecocute)、
