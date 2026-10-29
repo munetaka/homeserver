@@ -8,6 +8,10 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Asia/Tokyo"
+    # 公開から7日未満の版は PR にしない (乗っ取られた版は数日で発見・取り下げられることが多いため)。
+    # 週次実行なので実際の取り込みは公開の 7〜13 日後。security update には効かず即 PR が来る
+    cooldown:
+      default-days: 7
     groups:
       actions:
         update-types: ["minor", "patch"]
@@ -23,6 +27,10 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Asia/Tokyo"
+    # 公開から7日未満の版は PR にしない (乗っ取られた版は数日で発見・取り下げられることが多いため)。
+    # 週次実行なので実際の取り込みは公開の 7〜13 日後。security update には効かず即 PR が来る
+    cooldown:
+      default-days: 7
     groups:
       dev-dependencies:
         dependency-type: "development"

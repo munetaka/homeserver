@@ -1,6 +1,6 @@
 # Runbook — 自宅センサー収集システム
 
-最終更新: 2026-10-28
+最終更新: 2026-10-29
 
 ## 構成概要
 
@@ -247,7 +247,10 @@ ping・各ポート(22/3000/8428)の TCP 応答を個別に確認。ポートは
 
 ## 依存更新(dependabot PR)の取り込み手順
 
-Dependabot は毎週月曜 06:00 JST に PR を作る。マイナー/パッチ更新は種別ごとに1つの PR に
+Dependabot は毎週月曜 06:00 JST に PR を作る。**公開から7日未満の版は対象外**(cooldown。
+乗っ取られて悪意あるコードを仕込まれた版は数日で発見・取り下げられることが多いので、
+自動マージで即取り込まないための待機。security update PR には適用されず即座に来る)。
+マイナー/パッチ更新は種別ごとに1つの PR に
 まとめられ、[dependabot-auto-merge.yml](../.github/workflows/dependabot-auto-merge.yml) が
 auto-merge を予約し、**CI の `test` が通れば GitHub が自動でマージする**(main のルールセットで
 `test` を必須チェックにしている。ジョブ名を変えると自動マージが止まるので注意)。
@@ -285,11 +288,31 @@ auto-merge を予約し、**CI の `test` が通れば GitHub が自動でマー
 自動マージ導入後は GitHub 側に毎週コミットが増えるので、**ローカルで作業を始める前に
 `git pull` する**習慣にすると rebase によるハッシュずれを避けられる。
 
-GitHub 側のセキュリティ設定(2026-10-28 時点): Dependabot alerts / security updates、
-secret scanning + push protection、CodeQL default setup(Python・Actions)を有効化済み。
+GitHub 側のセキュリティ設定(2026-10-29 時点): Dependabot alerts / security updates /
+malware alerts、secret scanning + push protection、CodeQL default setup(Python・Actions)を
+有効化済み。malware alerts の自動却下ルール(auto-triage)は作らない(依存は約40個で量が少なく、
+マルウェアは1件も見逃したくないため)。CodeQL の指摘は1件ずつ「直す」か「理由を付けて Dismiss」に
+仕分ける(Copilot Autofix の案は下書き扱い。例: echonet.py の 0.0.0.0 bind は Won't fix)。
 Actions の既定トークン権限は Read(ワークフローは必要な権限を YAML で個別に宣言する)。
 actions は `uses:` をコミットハッシュで固定している(タグ書き換え対策。Dependabot が
 ハッシュとコメントのタグを一緒に更新する)。
+
+### Dependabot の malware alert が出たとき
+
+**版を上げて終わりにしない**。悪意あるパッケージはインストール時点でコードが動くことがある。
+
+1. **どこに入ったか特定**: `git log -p uv.lock` でその版が main に入った時期を調べ、
+   Mac(`uv sync` した時期)・Pi(デプロイ時期)・CI のどこにインストールされたか洗い出す
+2. **除去**: 該当パッケージを外すか安全な版に固定し、`uv lock` → テスト → コミット →
+   `scripts/deploy-to-pi.sh`。Pi の `.venv` に残っていないことを `uv pip list` で確認
+3. **秘密情報は漏れた前提で作り直す**: Pi の `.env`(pCloud バックアップの認証、各種トークン)、
+   Mac で入っていたなら GitHub 鍵や手元のトークンも
+4. **Pi の痕跡確認**: 見慣れないプロセス・systemd ユニット・cron、外向き通信
+   (`ss -tnp`)、`~/.ssh/authorized_keys` の改変が無いか
+5. 誤データ・情報漏えいの可能性があれば docs/incidents/ に記録する
+
+パッケージ名 `homeserver`(自分自身)が同名の悪意ある公開パッケージに一致して鳴る誤検知はあり得る。
+その場合は確認のうえ Dismiss してよい。
 
 ## Tips(ハマりどころ)
 
