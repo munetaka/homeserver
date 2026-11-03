@@ -306,7 +306,7 @@ def read_aircon(client: EchonetClient, target: ElTarget) -> List[Reading]:
     if 0x84 in props and len(props[0x84]) == 2:
         fields["power_w"] = int.from_bytes(props[0x84], "big")
     if 0x85 in props and len(props[0x85]) == 4:
-        # 積算消費電力量 (0.001kWh 単位)。瞬時値 (100W刻みの目安) と違い正確な差分が取れる
+        # 積算消費電力量 (0.001kWh 単位だがダイキンは 0.1kWh 刻みで増える)。瞬時値 (100W刻みの目安) より正確な差分が取れる
         fields["energy_total_kwh"] = int.from_bytes(props[0x85], "big") * 0.001
     if 0xB0 in props and len(props[0xB0]) == 1:
         mode = AIRCON_MODES.get(props[0xB0][0])
