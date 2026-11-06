@@ -193,11 +193,62 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "日射 (太陽光発電を代理指標に)",
+      "title": "日射 (気象MSM・約6時間前)",
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 3,
         "x": 12,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: W/m²",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 200
+              },
+              {
+                "color": "orange",
+                "value": 600
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "last_over_time(weather_ghi_wm2{source=\"jma_msm\"}[12h])",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "description": "気象庁MSMの全天日射(前1時間平均)。値が確定してから取り込むため約6時間遅れ。今の発電は右隣。"
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "太陽光発電 (今)",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
         "y": 0
       },
       "options": {
@@ -951,6 +1002,29 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "外気 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
           }
         ]
       },
@@ -967,16 +1041,23 @@
         },
         {
           "expr": "avg(appliance_outdoor_temp)",
-          "legendFormat": "外気",
+          "legendFormat": "外気 (室外機)",
           "refId": "C"
+        },
+        {
+          "expr": "weather_temp_c{source=\"jma_msm\"}",
+          "legendFormat": "外気 (気象MSM)",
+          "refId": "D",
+          "interval": "1h"
         }
-      ]
+      ],
+      "description": "外気は2系統: 室外機の吸込み温度(リアルタイムだが自機の排熱・日射の影響を受ける)と、気象庁MSM(約5km格子のモデル値・約6時間遅れ)。"
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "結果: 絶対湿度 と 日射 (右軸=発電W)",
-      "description": "冷房で室温が設定に達した後に絶対湿度が上がってくる=湿度戻り。そのタイミングが除湿や設定見直しの検討どき。発電カーブ=日射で、遮蔽/取得の効き具合を室温と突き合わせる。",
+      "title": "結果: 絶対湿度 と 日射 (右軸=日射W/m²・発電W)",
+      "description": "冷房で室温が設定に達した後に絶対湿度が上がってくる=湿度戻り。そのタイミングが除湿や設定見直しの検討どき。日射(気象MSM、前1時間平均・約6時間遅れ)と発電カーブを並べ、遮蔽/取得の効き具合を室温と突き合わせる。外気の絶対湿度はMSMの気温・相対湿度から近似式で算出。",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -996,7 +1077,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "日射 (発電)"
+              "options": "発電"
             },
             "properties": [
               {
@@ -1027,6 +1108,64 @@
                 "value": 0
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "日射 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "unit",
+                "value": "suffix: W/m²"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度 外気 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1043,8 +1182,20 @@
         },
         {
           "refId": "C",
-          "legendFormat": "日射 (発電)",
+          "legendFormat": "発電",
           "expr": "sum(power_generation_w)"
+        },
+        {
+          "refId": "D",
+          "legendFormat": "日射 (気象MSM)",
+          "expr": "weather_ghi_wm2{source=\"jma_msm\"}",
+          "interval": "1h"
+        },
+        {
+          "refId": "E",
+          "legendFormat": "絶対湿度 外気 (気象MSM)",
+          "expr": "with (t = weather_temp_c{source=\"jma_msm\"}) 216.7 * (weather_humidity_pct{source=\"jma_msm\"}/100 * 6.112 * exp(17.62*t/(243.12+t))) / (273.15+t)",
+          "interval": "1h"
         }
       ]
     },
@@ -1085,8 +1236,8 @@
     {
       "id": 12,
       "type": "timeseries",
-      "title": "日別振り返り: 快適率(全室) / 空調kWh / 日射kWh — 常に直近14日表示",
-      "description": "快適率 = 全部屋(屋外除く)が室温22〜26.5℃かつ絶対湿度7〜12.5g/m³に収まっていた時間の割合。",
+      "title": "日別振り返り: 快適率(全室) / 空調kWh / 発電kWh / 日射kWh/m² — 常に直近14日表示",
+      "description": "快適率 = 全部屋(屋外除く)が室温22〜26.5℃かつ絶対湿度7〜12.5g/m³に収まっていた時間の割合。 日射kWh/m²は気象MSMの全天日射の日積算(約6時間遅れのため当日分は小さく出る)。",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -1151,6 +1302,29 @@
                 "value": "right"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "日射kWh/m² (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: kWh/m²"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1169,9 +1343,15 @@
         },
         {
           "refId": "C",
-          "legendFormat": "日射kWh (発電)",
+          "legendFormat": "発電kWh",
           "interval": "1d",
           "expr": "sum(last_over_time(energy_day_kwh{kind=\"generation\"}[12h])) or sum(increase(power_generation_total_kwh[1d] offset -1d))"
+        },
+        {
+          "refId": "D",
+          "legendFormat": "日射kWh/m² (気象MSM)",
+          "interval": "1d",
+          "expr": "sum_over_time(weather_ghi_wm2{source=\"jma_msm\"}[1d] offset -1d) / 1000"
         }
       ]
     },

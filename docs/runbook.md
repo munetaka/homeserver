@@ -44,7 +44,7 @@ flowchart LR
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
 | 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
-| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。すべてプロビジョニング管理 → `deploy/grafana/` |
+| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の外気・日射・日別日射kWh/m²(発電と並べて表示)に出る。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |

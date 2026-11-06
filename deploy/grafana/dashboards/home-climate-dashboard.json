@@ -28,13 +28,49 @@
             "spanNulls": 300000
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "expr": "climate_temperature",
           "legendFormat": "{{location}}",
           "refId": "A"
+        },
+        {
+          "expr": "weather_temp_c{source=\"jma_msm\"}",
+          "legendFormat": "屋外 (気象MSM)",
+          "refId": "B",
+          "interval": "1h"
         }
       ]
     },
@@ -59,13 +95,49 @@
             "spanNulls": 300000
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "expr": "climate_humidity",
           "legendFormat": "{{location}}",
           "refId": "A"
+        },
+        {
+          "expr": "weather_humidity_pct{source=\"jma_msm\"}",
+          "legendFormat": "屋外 (気象MSM)",
+          "refId": "B",
+          "interval": "1h"
         }
       ]
     },
@@ -134,13 +206,49 @@
           },
           "decimals": 2
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "expr": "climate_abs_humidity",
           "legendFormat": "{{location}}",
           "refId": "A"
+        },
+        {
+          "expr": "with (t = weather_temp_c{source=\"jma_msm\"}) 216.7 * (weather_humidity_pct{source=\"jma_msm\"}/100 * 6.112 * exp(17.62*t/(243.12+t))) / (273.15+t)",
+          "legendFormat": "屋外 (気象MSM)",
+          "refId": "B",
+          "interval": "1h"
         }
       ]
     },
@@ -216,13 +324,240 @@
             "spanNulls": 300000
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "expr": "with (g = ln(climate_humidity/100) + 17.62*climate_temperature/(243.12+climate_temperature)) 243.12*g/(17.62-g)",
           "legendFormat": "{{location}}",
           "refId": "A"
+        },
+        {
+          "expr": "weather_dewpoint_c{source=\"jma_msm\"}",
+          "legendFormat": "屋外 (気象MSM)",
+          "refId": "B",
+          "interval": "1h"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 7,
+      "title": "屋外の日射・雲量 (気象庁MSM・約6時間遅れ)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "description": "全天日射は前1時間平均(13時の点=12〜13時)。直達・散乱は全天からの推定値。",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: W/m²",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "spanNulls": 10800000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "雲量"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 10
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "全天日射"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "weather_ghi_wm2{source=\"jma_msm\"}",
+          "legendFormat": "全天日射",
+          "refId": "A",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_direct_wm2{source=\"jma_msm\"}",
+          "legendFormat": "直達",
+          "refId": "B",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_diffuse_wm2{source=\"jma_msm\"}",
+          "legendFormat": "散乱",
+          "refId": "C",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_cloud_pct{source=\"jma_msm\"}",
+          "legendFormat": "雲量",
+          "refId": "D",
+          "interval": "1h"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 8,
+      "title": "屋外の降水量・風 (気象庁MSM・約6時間遅れ)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "description": "降水量は前1時間の合計(13時の棒=12〜13時)。風速・風向は地上10mの瞬時値。",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: mm",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "spanNulls": 10800000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "風速"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocityms"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "降水量"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "weather_precip_mm{source=\"jma_msm\"}",
+          "legendFormat": "降水量",
+          "refId": "A",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_wind_ms{source=\"jma_msm\"}",
+          "legendFormat": "風速",
+          "refId": "B",
+          "interval": "1h"
         }
       ]
     }
