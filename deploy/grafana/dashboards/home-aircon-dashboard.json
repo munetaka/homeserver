@@ -1204,8 +1204,8 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "結果: 絶対湿度 と 水蒸気の発生源 (右軸=寝室CO2、帯=入浴・調理)",
-      "description": "冷房で室温が設定に達した後に絶対湿度が上がってくる=湿度戻り。そのタイミングが除湿や設定見直しの検討どき。発生源の目安: 寝室CO2(在室・就寝)、帯の「入浴」=エコキュート残湯が30分で100L以上減った時間、「調理」=IH回路が300W超の時間。換気は全熱交換(湿度も約67%回収)なので室内で出た水蒸気が残りやすい。外気の絶対湿度はMSMの気温・相対湿度から近似式で算出。",
+      "title": "結果: 絶対湿度 と 水蒸気の発生源 (右軸=寝室CO2、帯=入浴・調理・洗濯機)",
+      "description": "冷房で室温が設定に達した後に絶対湿度が上がってくる=湿度戻り。そのタイミングが除湿や設定見直しの検討どき。発生源の目安: 寝室CO2(在室・就寝)、帯の「入浴」=エコキュート残湯が30分で100L以上減った時間、「調理」=IH回路が300W超の時間、「洗濯機」=洗濯機回路が30W超の時間(1100W前後はヒーター乾燥)。洗濯機はユーティリティにあるので、その絶対湿度と並べて見る。換気は全熱交換(湿度も約67%回収)なので室内で出た水蒸気が残りやすい。外気の絶対湿度はMSMの気温・相対湿度から近似式で算出。",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -1311,6 +1311,25 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度 ユーティリティ"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FADE2A"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
+            ]
           }
         ]
       },
@@ -1324,6 +1343,11 @@
           "refId": "B",
           "legendFormat": "絶対湿度 寝室",
           "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "絶対湿度 ユーティリティ",
+          "expr": "climate_abs_humidity{location=\"home-1F-ユーティリティ\"}"
         },
         {
           "refId": "E",
@@ -1341,7 +1365,7 @@
     {
       "id": 11,
       "type": "timeseries",
-      "title": "実際の運転: 空調の電力量 (kWh/時) — モードが冷房でも室温が設定より低ければ動いていない",
+      "title": "実際の運転: 空調の消費電力量 (Wh/時、分電盤の回路計測) — モードが冷房でも室温が設定より低ければほぼ動いていない",
       "gridPos": {
         "h": 5,
         "w": 24,
@@ -1350,43 +1374,75 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "kwatth",
-          "decimals": 2,
+          "unit": "watth",
+          "decimals": 0,
           "min": 0,
           "custom": {
             "drawStyle": "bars",
-            "fillOpacity": 60,
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "barWidthFactor": 0.45,
             "stacking": {
-              "mode": "normal"
+              "mode": "none"
             }
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "リビングエアコン"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              },
+              {
+                "id": "custom.barAlignment",
+                "value": -1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "寝室エアコン"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              },
+              {
+                "id": "custom.barAlignment",
+                "value": 1
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
-          "expr": "sum by (location) (increase(appliance_energy_total_kwh{type=\"aircon\"}[1h]))",
-          "legendFormat": "{{location}}",
           "refId": "A",
-          "interval": "1h"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "renameByRegex",
-          "options": {
-            "regex": "(.*)home-エアコンA(.*)",
-            "renamePattern": "$1リビングエアコン$2"
-          }
+          "legendFormat": "リビングエアコン",
+          "interval": "1h",
+          "expr": "avg_over_time(power_circuit_watts{circuit=\"17\"}[1h])"
         },
         {
-          "id": "renameByRegex",
-          "options": {
-            "regex": "(.*)home-エアコンB(.*)",
-            "renamePattern": "$1寝室エアコン$2"
-          }
+          "refId": "B",
+          "legendFormat": "寝室エアコン",
+          "interval": "1h",
+          "expr": "avg_over_time(power_circuit_watts{circuit=\"16\"}[1h] offset -1h)"
         }
-      ]
+      ],
+      "description": "各時間帯の消費電力量。分電盤の専用回路(16=寝室エアコン、17=2Fエアコン=リビング)の平均電力から算出しているので数Wh単位で見える(エアコン本体の積算値は0.1kWh刻みで粗い)。1時間の枠の左=寝室、右=リビングに並べて表示。送風だけなら10Wh前後。"
     },
     {
       "id": 12,
@@ -1856,6 +1912,25 @@
         "step": "5m",
         "titleFormat": "調理",
         "textFormat": "IH回路が300W超",
+        "filter": {
+          "exclude": false,
+          "ids": [
+            10
+          ]
+        }
+      },
+      {
+        "name": "洗濯機",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "P4169E866C3094E38"
+        },
+        "enable": true,
+        "iconColor": "#FADE2A",
+        "expr": "max_over_time(power_circuit_watts{circuit=\"12\"}[10m]) > 30",
+        "step": "5m",
+        "titleFormat": "洗濯機",
+        "textFormat": "洗濯機回路が30W超",
         "filter": {
           "exclude": false,
           "ids": [

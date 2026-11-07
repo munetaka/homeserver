@@ -44,7 +44,7 @@ flowchart LR
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
 | 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
-| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超)を重ねている。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
+| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超、洗濯機=回路12が30W超。洗濯機はユーティリティの絶対湿度と並べる)を重ねている。「実際の運転」パネルはエアコン本体の積算(0.1kWh刻みで粗い)ではなく分電盤の専用回路(16/17)の毎時平均電力=Wh を、1時間枠の左=寝室・右=リビングに並べて表示(積み上げると片方が埋もれるため barAlignment で横並び)。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |
