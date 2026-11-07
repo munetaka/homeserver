@@ -44,7 +44,7 @@ flowchart LR
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
 | 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
-| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の外気・日射・日別日射kWh/m²(発電と並べて表示)に出る。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
+| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超)を重ねている。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |
@@ -195,7 +195,7 @@ type は meter/co2/hub2)を編集して `sudo systemctl restart switchbot.servic
 | IP | 機器 | 収集クラス |
 | --- | --- | --- |
 | 192.168.11.10 | エネルギー計測ユニット MKN7350S1 | 太陽光発電 + 分電盤メータリング(回路別28ch) |
-| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力(100W刻みの目安)・積算電力量(単位 0.001kWh・実際は 0.1kWh 刻み)・室温/室内湿度・外気温・設定温度・除湿設定湿度・運転モード(温湿度は自己申告で1℃/1%刻み)。**設定温度も1℃単位**(ECHONET の 0xB3 は整数で、リモコンの 0.5℃ は届かない。26.5℃は 26 として記録されるとみられる。メーカー独自プロパティ・ローカル HTTP API とも無し=2026-10-29 確認。自動制御でも書き込みは1℃単位になる)。送風モード中は設定温度が未定義(0xFD)で記録されない。**設置部屋: A=2F-リビング、B=1F-寝室**(高精度の温湿度は同室の SwitchBot センサーを使う) |
+| 192.168.11.12 / .181 | ダイキン エアコンA / B | 消費電力(100W刻みの目安)・積算電力量(単位 0.001kWh・実際は 0.1kWh 刻み)・室温/室内湿度・外気温・設定温度・除湿設定湿度・運転モード(温湿度は自己申告で1℃/1%刻み)。**設定温度も1℃単位**(ECHONET の 0xB3 は整数で、リモコンの 0.5℃ は届かない。26.5℃は 26 として記録されるとみられる。メーカー独自プロパティ・ローカル HTTP API とも無し=2026-10-29 確認。自動制御でも書き込みは1℃単位になる)。送風モード中は設定温度が未定義(0xFD)で記録されない。**設置部屋: A=2F-リビング、B=1F-寝室**(2026-11-07 にデータで確認: 消費電力が A↔回路17「2Fエアコン」r=0.88、B↔回路16「寝室エアコン」r=0.98、機器の室温も同室の SwitchBot と最も相関)。保存ラベルは `home-エアコンA/B` のまま、ダッシュボードでは renameByRegex で「リビングエアコン」「寝室エアコン」と表示する(高精度の温湿度は同室の SwitchBot センサーを使う) |
 | 192.168.11.169 | ダイキン エコキュート | 消費電力・残湯量(50L刻み) |
 | 192.168.11.216 | AiSEG2(コントローラ) | 収集対象外(ECHONET照会に応答しない) |
 
