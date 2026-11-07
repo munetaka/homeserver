@@ -447,6 +447,22 @@
           "legendFormat": "{{location}}",
           "refId": "A"
         }
+      ],
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンA",
+            "renamePattern": "リビングエアコン"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンB",
+            "renamePattern": "寝室エアコン"
+          }
+        }
       ]
     },
     {
@@ -538,6 +554,22 @@
           "refId": "E",
           "expr": "appliance_dehum_setpoint_humidity",
           "legendFormat": "除湿設定 {{location}}"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンA",
+            "renamePattern": "リビングエアコン"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンB",
+            "renamePattern": "寝室エアコン"
+          }
         }
       ]
     },
@@ -1369,6 +1401,22 @@
           "expr": "appliance_mode * appliance_on",
           "legendFormat": "{{location}}"
         }
+      ],
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンA",
+            "renamePattern": "リビングエアコン"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンB",
+            "renamePattern": "寝室エアコン"
+          }
+        }
       ]
     },
     {
@@ -1402,7 +1450,23 @@
           "legendFormat": "{{location}}"
         }
       ],
-      "timeFrom": "7d"
+      "timeFrom": "7d",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンA",
+            "renamePattern": "リビングエアコン"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "home-エアコンB",
+            "renamePattern": "寝室エアコン"
+          }
+        }
+      ]
     },
     {
       "id": 62,
