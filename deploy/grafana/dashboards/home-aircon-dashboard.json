@@ -1111,6 +1111,36 @@
                 "value": 0
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "室温 リビング"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "室温 寝室"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1251,18 +1281,48 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度 リビング"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度 寝室"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
           }
         ]
       },
       "targets": [
         {
           "refId": "A",
-          "legendFormat": "絶対湿度 2Fリビング (A)",
+          "legendFormat": "絶対湿度 リビング",
           "expr": "climate_abs_humidity{location=\"home-2F-リビング\"}"
         },
         {
           "refId": "B",
-          "legendFormat": "絶対湿度 1F寝室 (B)",
+          "legendFormat": "絶対湿度 寝室",
           "expr": "climate_abs_humidity{location=\"home-1F-寝室\"}"
         },
         {
