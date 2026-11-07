@@ -452,15 +452,15 @@
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンA",
-            "renamePattern": "リビングエアコン"
+            "regex": "(.*)home-エアコンA(.*)",
+            "renamePattern": "$1リビングエアコン$2"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンB",
-            "renamePattern": "寝室エアコン"
+            "regex": "(.*)home-エアコンB(.*)",
+            "renamePattern": "$1寝室エアコン$2"
           }
         }
       ]
@@ -560,15 +560,15 @@
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンA",
-            "renamePattern": "リビングエアコン"
+            "regex": "(.*)home-エアコンA(.*)",
+            "renamePattern": "$1リビングエアコン$2"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンB",
-            "renamePattern": "寝室エアコン"
+            "regex": "(.*)home-エアコンB(.*)",
+            "renamePattern": "$1寝室エアコン$2"
           }
         }
       ]
@@ -1406,15 +1406,15 @@
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンA",
-            "renamePattern": "リビングエアコン"
+            "regex": "(.*)home-エアコンA(.*)",
+            "renamePattern": "$1リビングエアコン$2"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンB",
-            "renamePattern": "寝室エアコン"
+            "regex": "(.*)home-エアコンB(.*)",
+            "renamePattern": "$1寝室エアコン$2"
           }
         }
       ]
@@ -1455,15 +1455,15 @@
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンA",
-            "renamePattern": "リビングエアコン"
+            "regex": "(.*)home-エアコンA(.*)",
+            "renamePattern": "$1リビングエアコン$2"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "home-エアコンB",
-            "renamePattern": "寝室エアコン"
+            "regex": "(.*)home-エアコンB(.*)",
+            "renamePattern": "$1寝室エアコン$2"
           }
         }
       ]
