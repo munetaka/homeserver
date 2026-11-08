@@ -28,8 +28,8 @@ package = true
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.170.11",
-    "pytest>=9.1.1",
+    "hypothesis>=6.170.14",
+    "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "responses>=0.26.3",
     "time-machine>=3.6.0",
