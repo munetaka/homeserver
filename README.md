@@ -206,7 +206,8 @@ Existing unittest-style tests run under pytest as-is; write new tests in pytest
 style. Coverage settings live in `pyproject.toml` (`[tool.coverage.*]`), with
 hardware-bound BLE discovery excluded via `pragma: no cover`. CI
 (`.github/workflows/test.yml`) runs the same suite plus shellcheck for
-`deploy/bin/*.sh` and `scripts/*.sh` on every push.
+`deploy/bin/*.sh` and `scripts/*.sh` on every push; for Dependabot PRs its
+`dependabot-merge` job squash-merges minor/patch updates once `test` has passed.
 
 ## Operations
 - デプロイ: `scripts/deploy-to-pi.sh` — main の HEAD を Pi へ同期し、成果物の配置と

@@ -1,6 +1,6 @@
 # Runbook — 自宅センサー収集システム
 
-最終更新: 2026-10-29
+最終更新: 2026-11-13
 
 ## 構成概要
 
@@ -268,11 +268,14 @@ Dependabot は毎週月曜 06:00 JST に PR を作る。**公開から7日未満
 乗っ取られて悪意あるコードを仕込まれた版は数日で発見・取り下げられることが多いので、
 自動マージで即取り込まないための待機。security update PR には適用されず即座に来る)。
 マイナー/パッチ更新は種別ごとに1つの PR に
-まとめられ、[dependabot-auto-merge.yml](../.github/workflows/dependabot-auto-merge.yml) が
-auto-merge を予約し、**CI の `test` が通れば GitHub が自動でマージする**(main のルールセットで
-`test` を必須チェックにしている。ジョブ名を変えると自動マージが止まるので注意)。
-`test` が予約より先に終わった PR は GitHub が予約を拒否するので、その場合はワークフローが
-即マージする(どちらの経路でもルールセットが `test` の成功を強制する)。
+まとめられ、[test.yml](../.github/workflows/test.yml) の `dependabot-merge` ジョブが
+**`test` ジョブの成功後に**マージする(`needs: test`。test が失敗・中断すればマージされず
+PR が残る)。テスト中に Dependabot が rebase した場合は `--match-head-commit` で古い実行の
+マージが失敗し、新しい head の実行がマージし直す。
+順序はワークフロー内の `needs` で保証しており、**main のルールセットの必須チェックには
+依存していない**(2026-11-13 時点で必須チェックは未登録。登録していると思い込んで
+test 完了前にマージされていた → [incidents/2026-11-13](incidents/2026-11-13-dependabot-merged-before-test.md))。
+`test` ジョブを改名するときは `needs` も直す(tests/test_workflows.py が検出する)。
 脆弱性アラート由来の security update PR(推移的依存の単独 PR)も同じ扱いで自動マージされる。
 **メジャー更新と bleak / dbus-fast は自動マージしない**(個別 PR のまま残る)ので、
 以下の手順で人がマージする。例外として **certifi はメジャーでも自動マージ**する

@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.13"
 
 [[package]]
@@ -175,6 +175,7 @@ dev = [
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pyyaml" },
     { name = "responses" },
     { name = "time-machine" },
 ]
@@ -192,6 +193,7 @@ dev = [
     { name = "hypothesis", specifier = ">=6.170.14" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "responses", specifier = ">=0.26.3" },
     { name = "time-machine", specifier = ">=3.6.0" },
 ]
