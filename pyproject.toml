@@ -28,7 +28,7 @@ package = true
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.170.14",
+    "hypothesis>=6.170.15",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "pyyaml>=6.0.3",
