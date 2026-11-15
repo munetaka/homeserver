@@ -177,12 +177,15 @@ systemd ユニット・スクリプト・Grafana 設定の原本はすべて [de
    ([docs/incidents/2026-07-05-influxdb-scraper-bloat.md](docs/incidents/2026-07-05-influxdb-scraper-bloat.md) の教訓)。
    外部公開(Cloudflare Tunnel)のトークンだけは専用の `/opt/homeserver/.env.tunnel` に置き、
    `cloudflare-tunnel.service` が `EnvironmentFile` で読む(このファイルが無いと起動しないので、
-   置くまでは enable しない)。
+   置くまでは enable しない)。Grafana の自動ログイン設定は `/opt/homeserver/.env.grafana`
+   (drop-in が任意で読む。無くても Grafana は起動する)。
 2. `deploy/systemd/` のユニットと `deploy/bin/` のスクリプトを配置:
    ```bash
    cd /opt/homeserver
    sudo install -m 755 deploy/bin/*.sh /usr/local/bin/
-   sudo install -m 644 deploy/systemd/* /etc/systemd/system/
+   sudo install -m 644 deploy/systemd/*.service deploy/systemd/*.timer /etc/systemd/system/
+   sudo mkdir -p /etc/systemd/system/grafana-server.service.d
+   sudo install -m 644 deploy/systemd/grafana-server.service.d/*.conf /etc/systemd/system/grafana-server.service.d/
    sudo systemctl daemon-reload
    sudo systemctl enable --now victoria-metrics switchbot collector-watchdog.timer vm-backup.timer
    ```

@@ -16,6 +16,7 @@
 | `systemd/tariff-fetch.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/weather-update.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/cloudflare-tunnel.service` | `/etc/systemd/system/`(Grafana の外部公開。トークンは `/opt/homeserver/.env.tunnel`) |
+| `systemd/grafana-server.service.d/*.conf` | `/etc/systemd/system/grafana-server.service.d/`(drop-in。Access の JWT で自動ログイン。設定値は `/opt/homeserver/.env.grafana`) |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |
 | `systemd/rpi-metrics.service` / `.timer` | `/etc/systemd/system/` |
@@ -54,6 +55,7 @@
    **Rotate token** して新しいトークンを `/opt/homeserver/.env.tunnel` に
    `TUNNEL_TOKEN=...`(mode 600)で置き、`sudo systemctl enable --now cloudflare-tunnel`。
    公開ホスト名・転送先・Access の設定は Cloudflare 側にあるので Pi では作り直し不要。
+   Grafana の自動ログインを戻すには `/opt/homeserver/.env.grafana` を作り直す(キーは docs/runbook.md の「外部公開」)。
 6. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
    (未設定の間 vm-backup.sh はスキップ動作)。
 7. データ復元: pCloud 上の `homeserver-backup/vm-backup-latest.tar.gz` を取得し、
