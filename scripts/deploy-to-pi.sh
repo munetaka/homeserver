@@ -37,7 +37,14 @@ install_if_changed() {
   fi
 }
 for f in deploy/systemd/*; do
+  [ -f "$f" ] || continue
   install_if_changed "$f" "/etc/systemd/system/$(basename "$f")" 644
+done
+# パッケージ提供のユニット (grafana-server など) への drop-in
+for f in deploy/systemd/*.d/*.conf; do
+  d="/etc/systemd/system/$(basename "$(dirname "$f")")"
+  sudo mkdir -p "$d"
+  install_if_changed "$f" "$d/$(basename "$f")" 644
 done
 for f in deploy/bin/*.sh; do
   install_if_changed "$f" "/usr/local/bin/$(basename "$f")" 755
@@ -75,6 +82,9 @@ for unit in $(echo "$changed_paths" | grep -oE '^deploy/systemd/[a-z-]+\.service
       if systemctl is-enabled -q "$unit"; then restart="$restart $unit"; fi ;;
   esac
 done
+if echo "$changed_paths" | grep -q '^deploy/systemd/grafana-server\.service\.d/'; then
+  restart="$restart grafana-server.service"
+fi
 if [ -n "$restart" ]; then
   for s in $restart; do sudo systemctl restart "$s"; done
   echo "restarted:$restart"
