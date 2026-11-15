@@ -45,6 +45,7 @@ flowchart LR
 | 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
 | 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超、洗濯機=回路12が30W超。洗濯機はユーティリティの絶対湿度と並べる)を重ねている。「実際の運転」パネルはエアコン本体の積算(0.1kWh刻みで粗い)ではなく分電盤の専用回路(16/17)の毎時平均電力=Wh を、1時間枠の左=寝室・右=リビングに並べて表示(積み上げると片方が埋もれるため barAlignment で横並び)。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
+| 外部公開 | `cloudflare-tunnel.service`(2026-11-15 導入、cloudflared を Cloudflare 公式 apt リポジトリから): Cloudflare Tunnel のトークン方式で Grafana を外部に出す。公開ホスト名・転送先 `http://localhost:3000`・閲覧者の制限(Cloudflare Access のメール OTP)はすべて Cloudflare ダッシュボード側の設定で、**ドメイン名は公開リポジトリに書かない**。トークンは `/opt/homeserver/.env.tunnel`(`TUNNEL_TOKEN=`、mode 600、git 管理外・バックアップ対象外。失ったら Rotate token で再発行)。ルーターのポート開放は不要(Pi から外向きに接続) |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |
@@ -337,6 +338,9 @@ actions は `uses:` をコミットハッシュで固定している(タグ書�
 
 ## Tips(ハマりどころ)
 
+- **Cloudflare ダッシュボードの「Install cloudflared connector」のコマンド(`cloudflared service install <token>`)は Pi で実行しない**。
+  `/etc/systemd/system/cloudflared.service` が別に作られ、deploy/ 管理の `cloudflare-tunnel.service` と二重に接続してしまう。
+  トークンだけを `.env.tunnel` に置く。トークンは合言葉と同じなのでチャット・ログ・リポジトリに貼らない。
 - **Pi の TZ は 2026-07-09 まで Europe/London (BST) だった**。docs/incidents/ 内の時刻表記は
   当時の BST(JST−8時間)。journalctl は表示時点の TZ に変換するため、古いログを見るときは
   障害記録の BST 表記と 8 時間ずれて見えることに注意。

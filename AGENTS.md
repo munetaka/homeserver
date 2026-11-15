@@ -11,6 +11,9 @@
   `switchbot.service`(BLE温湿度)/ `echonet.service`(電力)がここから動いている
 - 実行時設定は `/opt/homeserver/.env`(**git 管理外**。書き込み先URL、BLE/ECHONET デバイス一覧、
   回路名。キーは .env.example 参照。夜間の pCloud バックアップに含まれる)
+- 外部公開は Cloudflare Tunnel(`cloudflare-tunnel.service`)。トークンは `/opt/homeserver/.env.tunnel`
+  (git 管理外)。公開ホスト名・Access の設定は Cloudflare 側にあり、**公開ドメイン名をリポジトリ
+  (コード・docs・コミットメッセージ)に書かない**(本名のリポジトリと公開用の名前を結び付けないため)
 - 実行時データ `/opt/homeserver/var/fuel_adjustment.json`(**git 管理外**。週次の `el tariff-fetch`
   が TEPCO から取った燃調単価を追記する overlay。バックアップ対象)。**燃調の新しい月を
   tariff.py に手で足す必要はもう無い**。tariff.py の定数を触るのは請求書で校正するときだけ

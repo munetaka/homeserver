@@ -70,6 +70,9 @@ for unit in $(echo "$changed_paths" | grep -oE '^deploy/systemd/[a-z-]+\.service
   case "$unit" in
     switchbot.service|echonet.service|victoria-metrics.service)
       restart="$restart $unit" ;;
+    cloudflare-tunnel.service)
+      # トークン (.env.tunnel) を置いて enable するまでは起動しない
+      if systemctl is-enabled -q "$unit"; then restart="$restart $unit"; fi ;;
   esac
 done
 if [ -n "$restart" ]; then

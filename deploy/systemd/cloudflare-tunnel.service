@@ -1,0 +1,21 @@
+[Unit]
+Description=Cloudflare Tunnel (Grafana の外部公開)
+Documentation=https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# トークン方式 (remotely-managed tunnel)。公開ホスト名と転送先 (http://localhost:3000) は
+# Cloudflare ダッシュボードの Tunnel > Routes で設定するので、ここにドメイン名は書かない。
+# TUNNEL_TOKEN は git 管理外の /opt/homeserver/.env.tunnel (mode 600) に置く。
+Type=notify
+EnvironmentFile=/opt/homeserver/.env.tunnel
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run
+DynamicUser=yes
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

@@ -15,6 +15,7 @@
 | `systemd/cost-update.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/tariff-fetch.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/weather-update.service` / `.timer` | `/etc/systemd/system/` |
+| `systemd/cloudflare-tunnel.service` | `/etc/systemd/system/`(Grafana の外部公開。トークンは `/opt/homeserver/.env.tunnel`) |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |
 | `systemd/rpi-metrics.service` / `.timer` | `/etc/systemd/system/` |
@@ -43,9 +44,19 @@
    sudo systemctl daemon-reload
    sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer weather-update.timer rpi-metrics.timer
    ```
-5. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
+5. 外部公開(Cloudflare Tunnel)を使う場合は、cloudflared を Cloudflare 公式 apt リポジトリから入れる:
+   ```bash
+   curl -fsSL https://pkg.cloudflare.com/cloudflare-public-v2.gpg | sudo tee /usr/share/keyrings/cloudflare-public-v2.gpg >/dev/null
+   echo "deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+   sudo apt-get update && sudo apt-get install cloudflared
+   ```
+   トークンは pCloud バックアップに含めていない。Cloudflare ダッシュボードの Tunnel で
+   **Rotate token** して新しいトークンを `/opt/homeserver/.env.tunnel` に
+   `TUNNEL_TOKEN=...`(mode 600)で置き、`sudo systemctl enable --now cloudflare-tunnel`。
+   公開ホスト名・転送先・Access の設定は Cloudflare 側にあるので Pi では作り直し不要。
+6. バックアップを有効化する場合は `sudo rclone config` で `pcloud` リモートを作成
    (未設定の間 vm-backup.sh はスキップ動作)。
-6. データ復元: pCloud 上の `homeserver-backup/vm-backup-latest.tar.gz` を取得し、
+7. データ復元: pCloud 上の `homeserver-backup/vm-backup-latest.tar.gz` を取得し、
    `victoria-metrics` **停止中**に以下を実施:
    ```bash
    tar xzf vm-backup-latest.tar.gz          # snapshots/<名前>/... の構造で展開される
@@ -62,7 +73,7 @@
    tar のルートには `.env`(コレクターの設定・SwitchBotトークン・BLEデバイスリスト)と
    `var/fuel_adjustment.json`(燃調単価 overlay、存在する場合)も含まれるので、
    それぞれ `/opt/homeserver/` 直下の同じ相対パスに配置する(`.env` は chmod 640)。
-7. 燃調 overlay が無い場合(バックアップに含まれていない等)は `el tariff-fetch` を1回実行すれば
+8. 燃調 overlay が無い場合(バックアップに含まれていない等)は `el tariff-fetch` を1回実行すれば
    TEPCO が公表中の月を再取得する。cost_* はバックアップに含まれるが、作り直すなら続けて全再計算:
    ```bash
    cd /opt/homeserver

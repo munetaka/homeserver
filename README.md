@@ -175,6 +175,9 @@ systemd ユニット・スクリプト・Grafana 設定の原本はすべて [de
    `.env` は systemd の `EnvironmentFile` ではなく CLI 自身(python-dotenv)が読む。
    ユニットに存在しない `EnvironmentFile` を書くと起動即失敗するので注意
    ([docs/incidents/2026-07-05-influxdb-scraper-bloat.md](docs/incidents/2026-07-05-influxdb-scraper-bloat.md) の教訓)。
+   外部公開(Cloudflare Tunnel)のトークンだけは専用の `/opt/homeserver/.env.tunnel` に置き、
+   `cloudflare-tunnel.service` が `EnvironmentFile` で読む(このファイルが無いと起動しないので、
+   置くまでは enable しない)。
 2. `deploy/systemd/` のユニットと `deploy/bin/` のスクリプトを配置:
    ```bash
    cd /opt/homeserver
