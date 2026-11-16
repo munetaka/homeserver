@@ -1,0 +1,18 @@
+[Unit]
+Description=Health endpoint (/healthz) for external monitoring
+After=network.target victoria-metrics.service
+
+[Service]
+# GET /healthz に 200 OK / 503 NG だけを返す (判定は src/cli/health.py。health-check.sh と同じ)。
+# localhost だけで待ち受ける。外から見るときは Cloudflare Tunnel + Access のサービストークン経由にする。
+Type=simple
+WorkingDirectory=/opt/homeserver
+ExecStart=/home/homepi/.local/bin/uv run health serve --port 9199
+Restart=on-failure
+RestartSec=10
+User=homepi
+Group=homepi
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -59,7 +59,7 @@ flowchart LR
 
 | パス | 内容 |
 | --- | --- |
-| `src/cli/` | 実装。`sync_data.py` = sb、`switchbot_ble.py` = BLEデコード、`comfort.py` = PMV、`echonet.py` = el、`cost.py` = 料金メトリクス計算、`tariff.py` = 料金モデルと単価テーブル、`tariff_fetch.py` = 燃調の自動取得・検証、`weather.py` = 気象庁MSM の毎時気象の取込 |
+| `src/cli/` | 実装。`sync_data.py` = sb、`switchbot_ble.py` = BLEデコード、`comfort.py` = PMV、`echonet.py` = el、`cost.py` = 料金メトリクス計算、`tariff.py` = 料金モデルと単価テーブル、`tariff_fetch.py` = 燃調の自動取得・検証、`weather.py` = 気象庁MSM の毎時気象の取込、`health.py` = 健全性判定(health-check.sh と /healthz 共通) |
 | `deploy/` | Pi 上の成果物の原本(systemd / スクリプト / Grafana 設定) |
 | `docs/` | runbook と障害記録 |
 | `scripts/` | 運用スクリプト(`deploy-to-pi.sh`、`health-check.sh`、`gen_comfort_zone.py` = 快適マップのゾーン生成) |
@@ -162,6 +162,14 @@ uv run el weather-backfill --start YYYY-MM-DD   # 毎時気象を指定日から
 回路名は `ECHONET_CIRCUIT_NAMES`、未使用回路の除外は `ECHONET_CIRCUIT_EXCLUDE` で設定します。
 詳細は [deploy/README.md](deploy/README.md) と [docs/runbook.md](docs/runbook.md) を参照。
 
+## Health CLI (`health`)
+サービス稼働・データ鮮度(温湿度/電力/コスト)・前夜のバックアップ・ディスクをまとめて判定します。
+
+```bash
+uv run health check                 # 項目ごとに OK/NG を表示。1つでも NG なら終了コード 1
+uv run health serve --port 9199     # GET /healthz に 200 OK / 503 NG だけを返す (healthz.service が使用。localhost のみ)
+```
+
 ## Raspberry Pi サービス運用
 
 本番構成(VictoriaMetrics + Grafana + コレクター + watchdog + pCloud バックアップ)の
@@ -187,7 +195,7 @@ systemd ユニット・スクリプト・Grafana 設定の原本はすべて [de
    sudo mkdir -p /etc/systemd/system/grafana-server.service.d
    sudo install -m 644 deploy/systemd/grafana-server.service.d/*.conf /etc/systemd/system/grafana-server.service.d/
    sudo systemctl daemon-reload
-   sudo systemctl enable --now victoria-metrics switchbot collector-watchdog.timer vm-backup.timer
+   sudo systemctl enable --now victoria-metrics switchbot collector-watchdog.timer vm-backup.timer healthz
    ```
 3. 動作確認:
    ```bash
@@ -219,7 +227,8 @@ hardware-bound BLE discovery excluded via `pragma: no cover`. CI
 - デプロイ: `scripts/deploy-to-pi.sh` — main の HEAD を Pi へ同期し、成果物の配置と
   サービス再起動まで自動判定(Claude Code では `/deploy-pi`)
 - ヘルスチェック: `scripts/health-check.sh` — サービス・データ鮮度・ディスク・バックアップの
-  一括確認(Claude Code では `/homeserver-health`)
+  一括確認。判定は Pi 上の `health check` で、NG があれば終了コード 1、Pi に繋がらなければ 255
+  (Claude Code では `/homeserver-health`)
 
 ## Notes
 - BLE decoding currently covers Meter, Meter Plus, CO2 meters (including outdoor versions), and Hub 2 (temperature/humidity only; no battery since it is mains powered). Unrecognized payloads fall back to `type=unknown` with a `code_0x..` label.

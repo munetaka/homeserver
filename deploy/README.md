@@ -16,6 +16,7 @@
 | `systemd/tariff-fetch.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/weather-update.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/cloudflare-tunnel.service` | `/etc/systemd/system/`(Grafana の外部公開。トークンは `/opt/homeserver/.env.tunnel`) |
+| `systemd/healthz.service` | `/etc/systemd/system/`(外部監視用の /healthz。localhost:9199 のみで待ち受け) |
 | `systemd/grafana-server.service.d/*.conf` | `/etc/systemd/system/grafana-server.service.d/`(drop-in。Access の JWT で自動ログイン。設定値は `/opt/homeserver/.env.grafana`) |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |
@@ -43,7 +44,7 @@
 4. 上記マッピング通りにファイルを配置して:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer weather-update.timer rpi-metrics.timer
+   sudo systemctl enable --now victoria-metrics switchbot echonet grafana-server collector-watchdog.timer vm-backup.timer cost-update.timer tariff-fetch.timer weather-update.timer rpi-metrics.timer healthz
    ```
 5. 外部公開(Cloudflare Tunnel)を使う場合は、cloudflared を Cloudflare 公式 apt リポジトリから入れる:
    ```bash

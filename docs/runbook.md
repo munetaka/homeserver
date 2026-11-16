@@ -1,6 +1,6 @@
 # Runbook — 自宅センサー収集システム
 
-最終更新: 2026-11-13
+最終更新: 2026-11-16
 
 ## 構成概要
 
@@ -32,6 +32,7 @@ flowchart LR
     WU -- "weather_* (確定済みの毎時値)" --> VM
 
     WD["collector-watchdog.timer 5分"] -. "鮮度監視 → 自動再起動" .-> 収集
+    HZ["healthz.service<br>127.0.0.1:9199/healthz"] -. "稼働・鮮度・バックアップ・ディスクを判定" .-> VM
     BK["vm-backup.timer 毎日03:30"] -- "snapshot + .env + overlay" --> PC[("pCloud")]
 ```
 
@@ -45,6 +46,7 @@ flowchart LR
 | 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
 | 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超、洗濯機=回路12が30W超。洗濯機はユーティリティの絶対湿度と並べる)を重ねている。「実際の運転」パネルはエアコン本体の積算(0.1kWh刻みで粗い)ではなく分電盤の専用回路(16/17)の毎時平均電力=Wh を、1時間枠の左=寝室・右=リビングに並べて表示(積み上げると片方が埋もれるため barAlignment で横並び)。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
+| 健全性判定 | `healthz.service`(2026-11-16 導入): `uv run health serve --port 9199`。**127.0.0.1 だけで待ち受け**、`GET /healthz` に 200 `OK` / 503 `NG` だけを返す(どの項目が NG かは外に出さず、OK/NG が変わったときだけ journal に記録)。判定は `src/cli/health.py` で、`scripts/health-check.sh` が ssh 越しに呼ぶ `health check` と同じ: 常駐サービスとタイマーが active / 温湿度・電力の最新サンプルが 600 秒以内(watchdog の発火閾値と同じ)/ コスト系列が 60 時間以内 / `vm-backup.service` の前回結果が success かつ 36 時間以内(再起動後まだ走っていなければ OK 扱い)/ `/` の使用率 90% 未満。結果は 30 秒キャッシュ。外部の死活監視(Cloudflare Worker の Cron が Tunnel + Access のサービストークン経由で叩く)はまだ未構築で、構築するときは watchdog の自動復旧(10 分)より長い 20 分程度の猶予を置いて鳴らす |
 | 外部公開 | `cloudflare-tunnel.service`(2026-11-15 導入、cloudflared を Cloudflare 公式 apt リポジトリから): Cloudflare Tunnel のトークン方式で Grafana を外部に出す。公開ホスト名・転送先 `http://localhost:3000`・閲覧者の制限(Cloudflare Access のメール OTP)はすべて Cloudflare ダッシュボード側の設定で、**ドメイン名は公開リポジトリに書かない**。トークンは `/opt/homeserver/.env.tunnel`(`TUNNEL_TOKEN=`、mode 600、git 管理外・バックアップ対象外。失ったら Rotate token で再発行)。ルーターのポート開放は不要(Pi から外向きに接続)。**Grafana への自動ログイン**: Access が付ける JWT(`Cf-Access-Jwt-Assertion` ヘッダ)を Grafana の `auth.jwt` で検証し、メールアドレスのユーザーとして自動ログイン(初回は Viewer で自動作成。`skip_org_role_sync` なので権限は Grafana の画面で変える)。設定は drop-in `grafana-server.service.d/cloudflare-access-jwt.conf` が読む `/opt/homeserver/.env.grafana`(git 管理外・バックアップ対象外)。キー(すべて頭に `GF_AUTH_JWT_`): `ENABLED=true` / `HEADER_NAME=Cf-Access-Jwt-Assertion` / `EMAIL_CLAIM=email` / `USERNAME_CLAIM=email` / `JWK_SET_URL=https://<チーム名>.cloudflareaccess.com/cdn-cgi/access/certs` / `CACHE_TTL=60m` / `EXPECT_CLAIMS='{"aud":"<Access アプリの AUD タグ>","iss":"https://<チーム名>.cloudflareaccess.com"}'`(JSON はシングルクォートで囲む) / `AUTO_SIGN_UP=true` / `SKIP_ORG_ROLE_SYNC=true`。加えて `GF_AUTH_SIGNOUT_REDIRECT_URL=https://<公開ホスト名>/cdn-cgi/access/logout`(**これが無いと Grafana の Sign out を押しても、Access の JWT ですぐ自動ログインし直されてログアウトできない**。Access のログアウトは全アプリ共通で、旧トークンは 20〜30 秒で無効になる。副作用として LAN から直接ログインしている場合も Sign out 後はこの URL に飛ぶ)。LAN から :3000 に直接来たアクセスはヘッダが無いので従来どおりパスワードでログイン。**閲覧者の追加** = Access アプリのポリシーにメールアドレスを足すだけ(初回アクセスで Grafana に Viewer として自動作成される。閲覧者のメールアドレスはリポジトリに書かない)。一般公開向けには別途、集計値だけの公開用ダッシュボードを Grafana の外部共有で出す予定 |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
@@ -207,6 +209,7 @@ IP は DHCP 予約で固定を推奨。追加・変更は `.env` の `ECHONET_DE
 
 ### グラフが途切れた / データが来ない
 
+0. 一括判定: Mac から `scripts/health-check.sh`(NG の項目と理由が出る。終了コード 0 = 全項目 OK)。
 1. 鮮度確認(Pi 上):
    ```bash
    curl -sG "http://localhost:8428/api/v1/query" --data-urlencode "query=count(climate_temperature)"

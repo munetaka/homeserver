@@ -68,6 +68,8 @@ changed_paths=$(git diff --name-only "$OLD" "$NEW")
 restart=""
 if echo "$changed_paths" | grep -qE '^(src/|pyproject\.toml|uv\.lock)'; then
   restart="switchbot.service echonet.service"
+  # healthz は enable するまで起動しない (初回は手動で enable --now)
+  if systemctl is-enabled -q healthz.service 2>/dev/null; then restart="$restart healthz.service"; fi
 fi
 if echo "$changed_paths" | grep -q '^deploy/systemd/'; then
   sudo systemctl daemon-reload
@@ -77,22 +79,23 @@ for unit in $(echo "$changed_paths" | grep -oE '^deploy/systemd/[a-z-]+\.service
   case "$unit" in
     switchbot.service|echonet.service|victoria-metrics.service)
       restart="$restart $unit" ;;
-    cloudflare-tunnel.service)
-      # トークン (.env.tunnel) を置いて enable するまでは起動しない
-      if systemctl is-enabled -q "$unit"; then restart="$restart $unit"; fi ;;
+    cloudflare-tunnel.service|healthz.service)
+      # enable するまでは起動しない (tunnel はトークン .env.tunnel を置いてから)
+      if systemctl is-enabled -q "$unit" 2>/dev/null; then restart="$restart $unit"; fi ;;
   esac
 done
 if echo "$changed_paths" | grep -q '^deploy/systemd/grafana-server\.service\.d/'; then
   restart="$restart grafana-server.service"
 fi
+restart=$(echo "$restart" | xargs -n1 2>/dev/null | sort -u | xargs)
 if [ -n "$restart" ]; then
   for s in $restart; do sudo systemctl restart "$s"; done
-  echo "restarted:$restart"
+  echo "restarted: $restart"
 else
   echo "restarted: (none)"
 fi
 
 printf "active?: "
-systemctl is-active switchbot.service echonet.service victoria-metrics.service grafana-server.service collector-watchdog.timer | tr '\n' ' '
-echo "(switchbot / echonet / victoria-metrics / grafana / watchdog)"
+systemctl is-active switchbot.service echonet.service victoria-metrics.service grafana-server.service collector-watchdog.timer healthz.service | tr '\n' ' '
+echo "(switchbot / echonet / victoria-metrics / grafana / watchdog / healthz)"
 REMOTE
