@@ -12,7 +12,7 @@ crons = ["*/5 * * * *"]
 
 [[kv_namespaces]]
 binding = "STATE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "a28400585fa948198ae7c2925c2e67ad"
 
 [observability]
 enabled = true
