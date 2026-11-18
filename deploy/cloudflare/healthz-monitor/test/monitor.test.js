@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { runCheck } from "../src/index.js";
-import { GRACE_MS, INITIAL_STATE, decide, isHealthy, message, sameState } from "../src/monitor.js";
+import { GRACE_MS, INITIAL_STATE, JITTER_MS, decide, isHealthy, message, sameState } from "../src/monitor.js";
 
 const MIN = 60 * 1000;
 
@@ -25,7 +25,7 @@ describe("decide", () => {
   it("猶予 (20分) 未満の NG では鳴らさない", () => {
     let r = decide(null, false, 0);
     assert.deepEqual(r.state, { failingSince: 0, notified: false });
-    r = decide(r.state, false, GRACE_MS - 1);
+    r = decide(r.state, false, GRACE_MS - JITTER_MS - 1);
     assert.equal(r.notify, null);
     assert.equal(r.state.failingSince, 0);
   });
@@ -37,6 +37,19 @@ describe("decide", () => {
     r = decide(r.state, false, GRACE_MS + 5 * MIN);
     assert.equal(r.notify, null); // 2 回目は送らない
     assert.equal(r.state.notified, true);
+  });
+
+  it("Cron の起動時刻が数秒ずれても 4 回目の判定 (20分後) で鳴る", () => {
+    // 2026-11-18 の実地テスト: NG 開始 21:40:20、4 回目の判定が 22:00:19 で「19分59秒」となり、
+    // 1 周遅れの 22:05 にしか鳴らなかった
+    const start = Date.UTC(2026, 10, 18, 12, 40, 20);
+    const r = decide({ failingSince: start, notified: false }, false, start + GRACE_MS - 1000);
+    assert.equal(r.notify, "down");
+  });
+
+  it("3 回目の判定 (15分後) ではまだ鳴らない", () => {
+    const r = decide({ failingSince: 0, notified: false }, false, 15 * MIN + 30 * 1000);
+    assert.equal(r.notify, null);
   });
 
   it("通知後に復旧したら up と NG だった時間を返す", () => {

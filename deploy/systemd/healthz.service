@@ -9,6 +9,8 @@ Type=simple
 WorkingDirectory=/opt/homeserver
 ExecStart=/home/homepi/.local/bin/uv run health serve --port 9199
 Restart=on-failure
+# 停止時の SIGTERM で uv が 143 を返す。これを失敗 (failed) と扱わない
+SuccessExitStatus=143
 RestartSec=10
 User=homepi
 Group=homepi

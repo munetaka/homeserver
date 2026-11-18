@@ -5,6 +5,9 @@
 //   notified:     その NG 期間について「停止」通知を送り済みか
 
 export const GRACE_MS = 20 * 60 * 1000; // watchdog の自動復旧 (10分) で直る障害では鳴らさない
+// Cron の起動時刻は毎回数秒〜十数秒ずれる。ちょうど 20 分で比べると 4 回目の判定が
+// 「19分59秒」になって 1 周 (5分) 遅れるので、1 分の余裕を持たせる
+export const JITTER_MS = 60 * 1000;
 
 export const INITIAL_STATE = Object.freeze({ failingSince: null, notified: false });
 
@@ -24,7 +27,7 @@ export function decide(state, healthy, now, graceMs = GRACE_MS) {
     return { state: INITIAL_STATE, notify: null };
   }
   const failingSince = s.failingSince ?? now;
-  if (!s.notified && now - failingSince >= graceMs) {
+  if (!s.notified && now - failingSince >= graceMs - JITTER_MS) {
     return { state: { failingSince, notified: true }, notify: "down", downForMs: now - failingSince };
   }
   return { state: { failingSince, notified: s.notified }, notify: null };
