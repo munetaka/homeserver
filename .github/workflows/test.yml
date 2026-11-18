@@ -32,6 +32,10 @@ jobs:
           fi
       - name: Lint deploy scripts
         run: shellcheck deploy/bin/*.sh scripts/*.sh
+      - name: Test healthz monitor Worker
+        # 依存パッケージなし (Node 標準の node:test)。ランナー同梱の Node で動く
+        working-directory: deploy/cloudflare/healthz-monitor
+        run: node --test
 
   # Dependabot の PR を、test が成功した後にだけマージする。
   # 以前は別ワークフローで auto-merge を予約していたが、main のルールセットに必須チェックが

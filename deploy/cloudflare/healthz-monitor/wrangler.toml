@@ -1,0 +1,18 @@
+# /healthz の外部監視 Worker。デプロイ手順と secret の一覧は README.md。
+# 公開ドメイン・トークン・Webhook はここに書かない (すべて `wrangler secret put` で入れる)。
+name = "healthz-monitor"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+# HTTP では公開しない (Cron だけで動く)
+workers_dev = false
+preview_urls = false
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[observability]
+enabled = true

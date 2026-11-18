@@ -62,6 +62,7 @@ flowchart LR
 | `src/cli/` | 実装。`sync_data.py` = sb、`switchbot_ble.py` = BLEデコード、`comfort.py` = PMV、`echonet.py` = el、`cost.py` = 料金メトリクス計算、`tariff.py` = 料金モデルと単価テーブル、`tariff_fetch.py` = 燃調の自動取得・検証、`weather.py` = 気象庁MSM の毎時気象の取込、`health.py` = 健全性判定(health-check.sh と /healthz 共通) |
 | `deploy/` | Pi 上の成果物の原本(systemd / スクリプト / Grafana 設定) |
 | `docs/` | runbook と障害記録 |
+| `deploy/cloudflare/healthz-monitor/` | /healthz を外から監視する Cloudflare Worker(Cron 5分、20分 NG で Slack 通知) |
 | `scripts/` | 運用スクリプト(`deploy-to-pi.sh`、`health-check.sh`、`gen_comfort_zone.py` = 快適マップのゾーン生成) |
 | `.claude/skills/` | Claude Code 用スキル(`/deploy-pi`、`/homeserver-health`) |
 | `tests/` | pytest スイート(実機ペイロードと TEPCO 燃調ページのフィクスチャ入り) |

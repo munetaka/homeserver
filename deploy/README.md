@@ -17,6 +17,7 @@
 | `systemd/weather-update.service` / `.timer` | `/etc/systemd/system/` |
 | `systemd/cloudflare-tunnel.service` | `/etc/systemd/system/`(Grafana の外部公開。トークンは `/opt/homeserver/.env.tunnel`) |
 | `systemd/healthz.service` | `/etc/systemd/system/`(外部監視用の /healthz。localhost:9199 のみで待ち受け) |
+| `cloudflare/healthz-monitor/` | Pi ではなく Cloudflare Workers(/healthz の外部監視。手順は同ディレクトリの README) |
 | `systemd/grafana-server.service.d/*.conf` | `/etc/systemd/system/grafana-server.service.d/`(drop-in。Access の JWT で自動ログイン。設定値は `/opt/homeserver/.env.grafana`) |
 | `bin/collector-watchdog.sh` | `/usr/local/bin/collector-watchdog.sh` (要 `chmod +x`) |
 | `bin/vm-backup.sh` | `/usr/local/bin/vm-backup.sh` (要 `chmod +x`) |

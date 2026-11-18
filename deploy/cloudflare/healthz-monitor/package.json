@@ -1,0 +1,9 @@
+{
+  "name": "healthz-monitor",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker that watches the homeserver /healthz endpoint",
+  "scripts": {
+    "test": "node --test"
+  }
+}
