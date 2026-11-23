@@ -1472,7 +1472,7 @@
       "id": 62,
       "type": "barchart",
       "title": "請求額の前年比較 (請求月別)",
-      "description": "検針期間 (10日〆) の請求見込みを請求月の月番号で揃えて年ごとに並べる。データは 2025-07 請求分から。",
+      "description": "検針期間 (10日〆) の請求見込みを請求月の月番号で揃えて年ごとに並べる。データは 2025-07 請求分から。差の原因は下の kWh パネルと見比べる: 買電量が同じなのに円が違えば単価 (燃調・基本料金) 要因、総消費量が同じなのに買電量が違えば太陽光 (天気) 要因、総消費量そのものが違えば生活の変化。",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -1530,6 +1530,140 @@
         {
           "refId": "A",
           "expr": "last_over_time(cost_period_yen{kind=\"bill\"}[3y])",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "type": "barchart",
+      "title": "総消費電力量の前年比較 (kWh, 請求月別)",
+      "description": "検針期間 (10日〆) ごとの家全体の消費量 (発電 + 買電 − 売電)。単価や天気に左右されないので、生活の仕方の変化はここに出る。進行中の期間は途中までの値。",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "showValue": "never",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "kind": true,
+              "month": true
+            }
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "year",
+            "rowField": "mm",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "mm\\year"
+              }
+            ]
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(energy_period_kwh{kind=\"consumption\"}[3y])",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "type": "barchart",
+      "title": "買電量の前年比較 (kWh, 請求月別)",
+      "description": "検針期間 (10日〆) ごとの買電量 = 請求額の従量部分の元になる量。総消費量との差は太陽光の自家消費分。進行中の期間は途中までの値。",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "showValue": "never",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "kind": true,
+              "month": true
+            }
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "year",
+            "rowField": "mm",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "mm\\year"
+              }
+            ]
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(energy_period_kwh{kind=\"buy\"}[3y])",
           "instant": true,
           "format": "table"
         }

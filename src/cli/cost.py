@@ -7,6 +7,9 @@
 - cost_day_yen{kind="buy"|"savings"|"sell_income"}    ... 日次 (限界単価ベース)
 - cost_period_yen{kind="bill"|"savings"|"sell_income"} ... 検針期間 (10日〆) 合計。
   bill は基本料金・定額込みの請求額見込み。タイムスタンプは期間開始日
+- energy_period_kwh{kind="buy"|"consumption"} ... 検針期間の買電量・総消費量。請求額の
+  前年比較を「単価要因 (円だけ変化) / 太陽光要因 (買電だけ変化) / 生活要因 (消費が変化)」
+  に分解して見るためのもの。ラベル・タイムスタンプは cost_period と同じ
 - cost_year_yen{kind, year} ... 暦年合計。savings/sell_income は日次の暦年合計、
   bill は「開始日がその暦年に属する検針期間」の請求合計。タイムスタンプは1月1日。
   保存済みメトリクスから毎回全年を再計算するため、cost-update の再計算窓に依存しない
@@ -189,6 +192,7 @@ def build_cost_lines(daily: Dict[date, Dict[str, float]], today: date) -> Tuple[
     warnings: List[str] = []
     periods: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
     period_days: Dict[str, int] = defaultdict(int)
+    consumption_days: Dict[str, int] = defaultdict(int)
 
     for day in sorted(daily):
         kwh = daily[day]
@@ -212,6 +216,9 @@ def build_cost_lines(daily: Dict[date, Dict[str, float]], today: date) -> Tuple[
         if gen is not None and sell is not None:
             fields["savings"] = tariff.savings_yen(month, gen - sell)
             periods[month]["savings"] += fields["savings"]
+        if buy is not None and sell is not None and gen is not None:
+            periods[month]["consumption_kwh"] += gen + buy - sell
+            consumption_days[month] += 1
         for kind, yen in fields.items():
             lines.append(f"cost_day,kind={kind} yen={round(yen, 2)} {ts_ns}")
         if buy is not None:
@@ -236,4 +243,12 @@ def build_cost_lines(daily: Dict[date, Dict[str, float]], today: date) -> Tuple[
         period_lines.append(f"cost_period,kind=bill,{tags} yen={round(bill, 2)} {ts_ns}")
         period_lines.append(f"cost_period,kind=savings,{tags} yen={round(acc['savings'], 2)} {ts_ns}")
         period_lines.append(f"cost_period,kind=sell_income,{tags} yen={round(acc['sell_income'], 2)} {ts_ns}")
+        period_lines.append(f"energy_period,kind=buy,{tags} kwh={round(acc['buy_kwh'], 3)} {ts_ns}")
+        # 消費量は 3 種そろった日だけで積むので、1日でも欠けたら過小になる → 書かない
+        if consumption_days[month] == period_days[month]:
+            period_lines.append(
+                f"energy_period,kind=consumption,{tags} kwh={round(acc['consumption_kwh'], 3)} {ts_ns}")
+        else:
+            warnings.append(f"{month}: 発電/売電が欠けた日があるため期間の消費量をスキップ "
+                            f"({consumption_days[month]}/{period_days[month]}日)")
     return lines + period_lines, warnings

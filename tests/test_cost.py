@@ -145,6 +145,30 @@ class TestBuildCostLines:
         # 期間メトリクスのタイムスタンプは期間開始日 (6/10)
         assert str(day_ts_ms(date(2026, 6, 10)) * 1_000_000) in bill_line
 
+    def test_completed_period_writes_buy_and_consumption_kwh(self):
+        daily = _full_period_daily("2026-07")  # 30日 × 買電10 / 売電9 / 発電15
+        lines, warnings = build_cost_lines(daily, today=date(2026, 7, 20))
+        assert warnings == []
+        energy = [l for l in lines if l.startswith("energy_period")]
+        assert len(energy) == 2
+        buy = next(l for l in energy if "kind=buy" in l)
+        cons = next(l for l in energy if "kind=consumption" in l)
+        assert "kwh=300.0" in buy
+        assert "kwh=480.0" in cons  # 消費 = 発電15 + 買電10 - 売電9 = 16/日
+        for line in energy:  # 請求額パネルと同じ軸で並べられるよう cost_period とラベルを揃える
+            assert "month=2026-07,year=2026,mm=07" in line
+            assert str(day_ts_ms(date(2026, 6, 10)) * 1_000_000) in line
+
+    def test_consumption_kwh_skipped_when_generation_missing(self):
+        # 発電が欠けた日があると消費量は過小になるので書かない (買電量と請求額は書く)
+        daily = _full_period_daily("2026-07")
+        del daily[date(2026, 6, 20)]["generation"]
+        lines, warnings = build_cost_lines(daily, today=date(2026, 7, 20))
+        assert any(l.startswith("energy_period,kind=buy") for l in lines)
+        assert any(l.startswith("cost_period,kind=bill") for l in lines)
+        assert not any(l.startswith("energy_period,kind=consumption") for l in lines)
+        assert any("消費量をスキップ" in w for w in warnings)
+
     def test_incomplete_past_period_is_skipped(self):
         daily = _full_period_daily("2026-07")
         del daily[date(2026, 6, 20)]  # 1日欠け
