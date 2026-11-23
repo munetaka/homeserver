@@ -6,7 +6,7 @@
   "refresh": "1m",
   "time": {
     "from": "now-24h",
-    "to": "now"
+    "to": "now+6h"
   },
   "panels": [
     {
@@ -57,6 +57,35 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#aaaaaa"
+                }
+              }
+            ]
           }
         ]
       },
@@ -70,6 +99,12 @@
           "expr": "weather_temp_c{source=\"jma_msm\"}",
           "legendFormat": "屋外 (気象MSM)",
           "refId": "B",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_forecast_temp_c{source=\"jma_msm\"}",
+          "legendFormat": "屋外 予報 (気象MSM)",
+          "refId": "C",
           "interval": "1h"
         }
       ]
@@ -124,6 +159,35 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#aaaaaa"
+                }
+              }
+            ]
           }
         ]
       },
@@ -137,6 +201,12 @@
           "expr": "weather_humidity_pct{source=\"jma_msm\"}",
           "legendFormat": "屋外 (気象MSM)",
           "refId": "B",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_forecast_humidity_pct{source=\"jma_msm\"}",
+          "legendFormat": "屋外 予報 (気象MSM)",
+          "refId": "C",
           "interval": "1h"
         }
       ]
@@ -235,6 +305,35 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#aaaaaa"
+                }
+              }
+            ]
           }
         ]
       },
@@ -248,6 +347,12 @@
           "expr": "with (t = weather_temp_c{source=\"jma_msm\"}) 216.7 * (weather_humidity_pct{source=\"jma_msm\"}/100 * 6.112 * exp(17.62*t/(243.12+t))) / (273.15+t)",
           "legendFormat": "屋外 (気象MSM)",
           "refId": "B",
+          "interval": "1h"
+        },
+        {
+          "expr": "with (t = weather_forecast_temp_c{source=\"jma_msm\"}) 216.7 * (weather_forecast_humidity_pct{source=\"jma_msm\"}/100 * 6.112 * exp(17.62*t/(243.12+t))) / (273.15+t)",
+          "legendFormat": "屋外 予報 (気象MSM)",
+          "refId": "C",
           "interval": "1h"
         }
       ]
@@ -353,6 +458,35 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "屋外 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#aaaaaa"
+                }
+              }
+            ]
           }
         ]
       },
@@ -366,6 +500,12 @@
           "expr": "weather_dewpoint_c{source=\"jma_msm\"}",
           "legendFormat": "屋外 (気象MSM)",
           "refId": "B",
+          "interval": "1h"
+        },
+        {
+          "expr": "weather_forecast_dewpoint_c{source=\"jma_msm\"}",
+          "legendFormat": "屋外 予報 (気象MSM)",
+          "refId": "C",
           "interval": "1h"
         }
       ]

@@ -86,6 +86,7 @@
    uv run el cost-update --since 2025-06-01
    ```
    気象(`weather_*`)もバックアップに含まれる。欠けていれば `.env` に `WEATHER_LAT` / `WEATHER_LON`
-   があることを確認して `uv run el weather-backfill --start 2025-06-01` で取り直せる。
+   があることを確認して `uv run el weather-backfill --start 2025-06-01` で取り直せる。予報(`weather_forecast_*`)は
+   毎時の `weather-update` が書き直すので復元不要。
 
 詳細な運用手順・障害対応は [docs/runbook.md](../docs/runbook.md) を参照。

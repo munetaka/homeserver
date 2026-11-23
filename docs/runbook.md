@@ -29,7 +29,7 @@ flowchart LR
     TF -- "tariff_* (状態・単価)" --> VM
 
     OM["Open-Meteo (気象庁 MSM)"] -- "HTTPS 毎時" --> WU["weather-update.timer 毎時:20<br>el weather-update"]
-    WU -- "weather_* (確定済みの毎時値)" --> VM
+    WU -- "weather_* (確定済みの毎時値)<br>weather_forecast_* (最新予報, 毎回書き直し)" --> VM
 
     WD["collector-watchdog.timer 5分"] -. "鮮度監視 → 自動再起動" .-> 収集
     HZ["healthz.service<br>127.0.0.1:9199/healthz"] -. "稼働・鮮度・バックアップ・ディスクを判定" .-> VM
@@ -47,13 +47,13 @@ flowchart LR
 | 設定 | `/opt/homeserver/.env`(SWITCHBOT_BLE_DEVICES、INFLUX_URL=http://localhost:8428 等) |
 | 実行時データ | `/opt/homeserver/var/fuel_adjustment.json`(燃調 overlay。git 管理外・`el tariff-fetch` が追記のみで更新) |
 | DB | VictoriaMetrics v1.146.0 単一ノード、データ `/var/lib/victoria-metrics` |
-| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線と日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超、洗濯機=回路12が30W超。洗濯機はユーティリティの絶対湿度と並べる)を重ねている。「実際の運転」パネルはエアコン本体の積算(0.1kWh刻みで粗い)ではなく分電盤の専用回路(16/17)の毎時平均電力=Wh を、1時間枠の左=寝室・右=リビングに並べて表示(積み上げると片方が埋もれるため barAlignment で横並び)。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
+| 可視化 | Grafana、ダッシュボード uid `home-climate` / `home-power` / `home-aircon`(空調振り返り: 快適マップ・日射との突き合わせ・快適率)。気象(MSM)は home-climate の温湿度・露点パネルに「屋外 (気象MSM)」の破線(確定値)と「屋外 予報 (気象MSM)」の点線(確定境界〜48h先の最新予報。既定の表示範囲は now+6h まで)、日射・雲量/降水・風パネル、home-aircon の「結果: 温度 と 日射」(外気・日射を発電と並べて右軸)と日別日射kWh/m²に出る。home-aircon の湿度パネルには水蒸気の発生源の目安(寝室CO2、注釈の帯: 入浴=エコキュート残湯が30分で100L以上減少、調理=IH回路300W超、洗濯機=回路12が30W超。洗濯機はユーティリティの絶対湿度と並べる)を重ねている。「実際の運転」パネルはエアコン本体の積算(0.1kWh刻みで粗い)ではなく分電盤の専用回路(16/17)の毎時平均電力=Wh を、1時間枠の左=寝室・右=リビングに並べて表示(積み上げると片方が埋もれるため barAlignment で横並び)。毎時データなので該当系列は query interval 1h・spanNulls 3h。すべてプロビジョニング管理 → `deploy/grafana/` |
 | 健全性判定 | `healthz.service`(2026-11-16 導入): `uv run health serve --port 9199`。**127.0.0.1 だけで待ち受け**、`GET /healthz` に 200 `OK` / 503 `NG` だけを返す(どの項目が NG かは外に出さず、OK/NG が変わったときだけ journal に記録)。判定は `src/cli/health.py` で、`scripts/health-check.sh` が ssh 越しに呼ぶ `health check` と同じ: 常駐サービスとタイマーが active / 温湿度・電力の最新サンプルが 600 秒以内(watchdog の発火閾値と同じ)/ コスト系列が 60 時間以内 / `vm-backup.service` の前回結果が success かつ 36 時間以内(再起動後まだ走っていなければ OK 扱い)/ `/` の使用率 90% 未満。結果は 30 秒キャッシュ。**外から見る経路**(2026-11-18): Tunnel のルートで `healthz.<公開ドメイン>` → `http://localhost:9199`。その前に Access アプリ `healthz`(ポリシー `monitor` = Action **Service Auth**、Include = サービストークン `healthz-monitor`。期限 1 年、期限切れ・漏えいは Notifications でメール通知)を置き、トークンなしは 403、誤ったトークンは 401 になることを確認済み。トークン(Client ID / Secret)は作成時にしか表示されないのでパスワードマネージャーに保管し、リポジトリには書かない。**ルートを追加するときは必ず Access アプリを先に作る**(逆だと /healthz が無防備に公開される)。**監視役**: Cloudflare Worker `healthz-monitor`(`deploy/cloudflare/healthz-monitor/`。Cron 5 分、20 分以上 NG が続いたら個人用 Slack に通知、復旧時も通知。NG には Access の拒否・Tunnel 断・タイムアウトも含む)。ドメイン・トークン・Webhook は Worker の secret。2026-11-18 に `healthz.service` を止める実地テストで、NG 通知(停止から約 27 分後)と復旧通知の両方が Slack に届くことを確認(このとき Cron の起動時刻のずれで 20 分ちょうどに 1 秒届かず 1 周遅れたため、判定に 1 分の余裕を追加)。**テストで止めるときは `sudo systemctl stop healthz.service`、戻すときは `start`**(Grafana と収集には影響しない) |
 | 外部公開 | `cloudflare-tunnel.service`(2026-11-15 導入、cloudflared を Cloudflare 公式 apt リポジトリから): Cloudflare Tunnel のトークン方式で Grafana を外部に出す。公開ホスト名・転送先 `http://localhost:3000`・閲覧者の制限(Cloudflare Access のメール OTP)はすべて Cloudflare ダッシュボード側の設定で、**ドメイン名は公開リポジトリに書かない**。トークンは `/opt/homeserver/.env.tunnel`(`TUNNEL_TOKEN=`、mode 600、git 管理外・バックアップ対象外。失ったら Rotate token で再発行)。ルーターのポート開放は不要(Pi から外向きに接続)。**死活通知**: Cloudflare ダッシュボードの Manage account → Notifications に Tunnel Health Alert(対象 Tunnel `homeserver`、Notify on = all = Down/Degraded/Healthy すべて、通知先はアカウントのメール)を設定済み(2026-11-18)。分かるのは Pi・回線・cloudflared の停止だけで、データ欠損などの中身の異常は `healthz.service` 側で見る。Cloudflare アカウントはリモート管理の Tunnel を握るので、2 段階認証(認証アプリ)を有効化済み。**Grafana への自動ログイン**: Access が付ける JWT(`Cf-Access-Jwt-Assertion` ヘッダ)を Grafana の `auth.jwt` で検証し、メールアドレスのユーザーとして自動ログイン(初回は Viewer で自動作成。`skip_org_role_sync` なので権限は Grafana の画面で変える)。設定は drop-in `grafana-server.service.d/cloudflare-access-jwt.conf` が読む `/opt/homeserver/.env.grafana`(git 管理外・バックアップ対象外)。キー(すべて頭に `GF_AUTH_JWT_`): `ENABLED=true` / `HEADER_NAME=Cf-Access-Jwt-Assertion` / `EMAIL_CLAIM=email` / `USERNAME_CLAIM=email` / `JWK_SET_URL=https://<チーム名>.cloudflareaccess.com/cdn-cgi/access/certs` / `CACHE_TTL=60m` / `EXPECT_CLAIMS='{"aud":"<Access アプリの AUD タグ>","iss":"https://<チーム名>.cloudflareaccess.com"}'`(JSON はシングルクォートで囲む) / `AUTO_SIGN_UP=true` / `SKIP_ORG_ROLE_SYNC=true`。加えて `GF_AUTH_SIGNOUT_REDIRECT_URL=https://<公開ホスト名>/cdn-cgi/access/logout`(**これが無いと Grafana の Sign out を押しても、Access の JWT ですぐ自動ログインし直されてログアウトできない**。Access のログアウトは全アプリ共通で、旧トークンは 20〜30 秒で無効になる。副作用として LAN から直接ログインしている場合も Sign out 後はこの URL に飛ぶ)。LAN から :3000 に直接来たアクセスはヘッダが無いので従来どおりパスワードでログイン。**閲覧者の追加** = Access アプリのポリシーにメールアドレスを足すだけ(初回アクセスで Grafana に Viewer として自動作成される。閲覧者のメールアドレスはリポジトリに書かない)。一般公開向けには別途、集計値だけの公開用ダッシュボードを Grafana の外部共有で出す予定 |
 | 監視 | `collector-watchdog.timer`(5分ごと): データ鮮度 >10分 or 未来時刻で bluetooth+collector を自動再起動 |
 | サーバー監視 | node_exporter :9100(systemd コレクターは主要ユニットのみ)+ `rpi-metrics.timer`(スロットリング)。VictoriaMetrics 自身が `/etc/victoria-metrics/scrape.yml` に従い 60 秒間隔でスクレイプ。ダッシュボード uid `homeserver-health` |
 | バックアップ | `vm-backup.timer`(毎日03:30): VM スナップショット + `.env` + 燃調 overlay → pCloud `homeserver-backup/` |
-| 気象取込 | `weather-update.timer`(毎時:20): `el weather-update` で気象庁 MSM の毎時気象を取り込む。地点は `.env` の `WEATHER_LAT` / `WEATHER_LON`(詳細は「メトリクスのデータモデル」の気象節) |
+| 気象取込 | `weather-update.timer`(毎時:20): `el weather-update` で気象庁 MSM の毎時気象を取り込み、未確定〜48h先の予報を `weather_forecast_*` に書き直す。地点は `.env` の `WEATHER_LAT` / `WEATHER_LON`(詳細は「メトリクスのデータモデル」の気象節) |
 | 料金更新 | `cost-update.timer`(毎日00:20): `el cost-update`。`tariff-fetch.timer`(毎週月曜06:30): `el tariff-fetch` で燃調単価を自動取得(詳細は「メトリクスのデータモデル」の燃調節) |
 
 ## メトリクスのデータモデル
@@ -120,9 +120,30 @@ flowchart LR
   `ghi_wm2`(全天日射)/ `direct_wm2` / `diffuse_wm2`(直達・散乱は全天からの推定値)。
   値は各予報ランの先頭数時間をつないだ「モデルによる実況推定」で観測値ではない。降水・日射は
   **その時刻までの1時間**の合計/平均(13:00 の値 = 12:00〜13:00)、気温・湿度・風は瞬時値。
-  VM の dedup は同一時刻を max で潰すため書き直しが効かない → **発表から6時間経って確定した時刻だけを
-  一度ずつ書く**(書き込み済みの最新時刻を VM に聞いて続きから。長期停止後も自動で埋まるのは
-  直近30日以内に書き込みがある場合。それより古い穴や初回は `el weather-backfill --start YYYY-MM-DD`)。
+  **配信タイミング**(2026-11-23 に Open-Meteo の Single Runs API と `data/jma_msm/static/meta.json` で実測):
+  MSM は 00/03/…/21 UTC の 1 日 8 ラン(予報時間は 39h、00/12 UTC は 78h)、Open-Meteo での公開は
+  初期時刻の約 3.5 時間後(21 UTC ラン → 00:31 UTC)。Open-Meteo は新しいランが来るたびに重なる時刻を
+  上書きするので、時刻 h の値は「h を含む直前のラン floor3(h)」が入った時点で最後の上書きを受ける
+  (瞬時値はそのランの FT0、降水・日射はひとつ前のランの FT3)。つまり h の値が確定するのは h の
+  0.5〜3.5 時間後。Historical Forecast API と Forecast API は同じ DB で、直近の値は両方同じ。
+  VM の dedup は同一時刻を max で潰すため書き直しが効かない → **確定した時刻だけを一度ずつ書く**:
+  固定の「6 時間前まで」(余裕 2.5 時間)に加えて、meta.json の最新ラン(初期時刻・公開時刻)から
+  「そのランが本当に公開済みか」を確かめ、配信が遅れているときはその先を書かずに待つ(公開から
+  10 分以内は取り込み途中とみなしてひとつ前のランで判定。meta が取れなければ warn を出して固定 6 時間で進める)。
+  平常時はこの判定は効かず 6 時間ルールだけが決める。毎時取得で確定分が 1 時間ずつ増えるので
+  **取得間隔は毎時のままでよい**(3 時間おきにしても確定値の表示が最大 2 時間余計に遅れるだけで得はない。
+  API 呼び出しは 1 回あたり 3 リクエスト、無料枠に対して無視できる)。書き込み済みの最新時刻を VM に聞いて
+  続きから書く。長期停止後も自動で埋まるのは直近30日以内に書き込みがある場合。それより古い穴や初回は
+  `el weather-backfill --start YYYY-MM-DD`。
+  **予報**(2026-11-23 導入): 同じコマンドが毎回、確定境界から 48 時間先までの最新予報(Forecast API、
+  ランをまたいで各時刻の最新値)を `weather_forecast_<field>{source="jma_msm"}` に書く。予報は毎回変わるので、
+  書く前に `delete_series match[]={__name__=~"weather_forecast_.*"}` で系列ごと消してから書き直す
+  (dedup の max 優先で古い予報が勝つのを避ける。削除は数十 ms、再投入した点が見えるまで十数秒。
+  予報の取得に失敗したときは消さずに前回の予報を残す)。計測名を分けているので `weather_*` の selector に
+  予報は混ざらない(日射の日積算などに偶然入り込まない)。予報系列の先頭 1 点は確定値の最終時刻と同じ
+  時刻で、ダッシュボードの線がつながる。home-climate の温度・相対湿度・絶対湿度・露点パネルでは
+  「屋外 (気象MSM)」=確定値の破線、「屋外 予報 (気象MSM)」=薄い点線で、既定の表示範囲を now+6h までにして
+  先の予報も見える(日射・降水のパネルは確定値のみ。予報の日射・降水も同じ系列にあるので必要なら足せる)。
   過去分は 2025-06-01(電力の日次データの開始)から補完済み(2026-10-29、12,367時間)。地点は `.env` の
   `WEATHER_LAT` / `WEATHER_LON`(小数2桁に丸める。公開リポジトリには書かない)。屋外の実測は別に
   SwitchBot `屋外-玄関`(温湿度)とエアコン室外機の外気温(`appliance_outdoor_temp`、温度のみ)がある。
@@ -195,7 +216,7 @@ SwitchBot アプリの絶対湿度と当システムの値が 1% 弱ずれるの
 湿度が整数(±0.5%RH)、②アプリは増強係数なしの Magnus 系と推定、の合算で説明でき、
 センサー自体の精度(±1.8%RH ≈ 絶対湿度 0.4 g/m³)より十分小さい。
 
-## 機器一覧(最終更新 2026-10-29)
+## 機器一覧(最終更新 2026-11-23)
 
 **BLE 温湿度センサー(SwitchBot)— 全11台稼働中**:
 WoIOSensor(防水温湿度計)×9、MeterPro(CO2)×1(1F-寝室)、Hub 2 ×1(1F-ユーティリティ)。
@@ -402,3 +423,8 @@ actions は `uses:` をコミットハッシュで固定している(タグ書�
 - **デプロイ**: GitHub 鍵が ssh-agent に無い環境では `git bundle create` + scp + Pi 側で
   `git fetch <bundle> main` を使う。Mac と Pi の working tree を揃えること。
 - 障害の詳細な経緯は `docs/incidents/` を参照。
+- **VM の delete_series → 同じ系列の再投入**は使える(2026-11-23 に実機で確認): 削除は数十 ms で即
+  クエリから消え、同じラベルで書き直した点は通常の取り込みと同じく十数秒後に見える。ただし削除は
+  「同一時刻を値を変えて書き直す」唯一の手段なので、毎時書き直す系列(気象の予報 `weather_forecast_*`)
+  のように**小さい系列に限って**使う。削除済み系列の索引エントリは retention(100y)まで残るので、
+  大きな系列を定期的に消す用途には向かない。

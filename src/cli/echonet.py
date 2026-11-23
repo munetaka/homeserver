@@ -757,7 +757,28 @@ def _weather_location(env: dict):
         raise typer.BadParameter(str(exc)) from exc
 
 
-@app.command(name="weather-update", help="気象庁MSMの毎時気象 (Open-Meteo) のうち確定済みの未取り込み分を書き込みます (毎時 timer 用)。")
+def _weather_settled_until(env: dict, now) -> int:
+    """確定済みの最終時刻。Open-Meteo のモデル情報が取れないときは固定の SETTLE_HOURS で進める。"""
+    from . import weather as wx
+
+    try:
+        run = wx.fetch_model_run(env["REQUEST_TIMEOUT_S"])
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        typer.echo(f"warn: model meta unavailable ({exc}); settling by fixed {wx.SETTLE_HOURS}h")
+        run = None
+    return wx.settled_until(now, run)
+
+
+def _hours_span(rows: dict) -> str:
+    from datetime import datetime
+
+    if not rows:
+        return "-"
+    return (f"{datetime.fromtimestamp(min(rows)).astimezone():%m-%d %H:%M}"
+            f"〜{datetime.fromtimestamp(max(rows)).astimezone():%m-%d %H:%M}")
+
+
+@app.command(name="weather-update", help="気象庁MSMの毎時気象 (Open-Meteo) のうち確定済みの未取り込み分を書き込み、未確定〜先の予報を weather_forecast_* に書き直します (毎時 timer 用)。")
 def weather_update(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="書き込まずに件数と範囲を表示のみ")] = False,
 ):
@@ -768,18 +789,26 @@ def weather_update(
     env = _load_env()
     loc = _weather_location(env)
     now = datetime.now().astimezone()
+    until = _weather_settled_until(env, now)
     last = wx.last_written(env["INFLUX_URL"], env["REQUEST_TIMEOUT_S"])
-    start, end, after = wx.update_window(now, last)
+    start, end, after = wx.update_window(last, until)
     rows = {}
     if start <= end:
-        rows = wx.select_rows(wx.fetch_hourly(loc, start, end, env["REQUEST_TIMEOUT_S"]),
-                              after, wx.settled_until(now))
+        rows = wx.select_rows(wx.fetch_hourly(loc, start, end, env["REQUEST_TIMEOUT_S"]), after, until)
     lines = wx.build_lines(rows)
-    span = (f"{datetime.fromtimestamp(min(rows)).astimezone():%m-%d %H:%M}"
-            f"〜{datetime.fromtimestamp(max(rows)).astimezone():%m-%d %H:%M}") if rows else "-"
     if not dry_run and lines:
         _write_influx(lines, env)
-    typer.echo(f"{'(dry-run) ' if dry_run else ''}wrote {len(lines)} hours ({span})")
+    # 予報: 確定境界から先を毎回取り直し、古い予報系列を消してから書く (取得に失敗したら前回の予報を残す)
+    since, fend = wx.forecast_window(now, until)
+    frows = wx.select_forecast_rows(
+        wx.fetch_forecast(loc, wx.forecast_past_hours(now, since), wx.FORECAST_HOURS + 1, env["REQUEST_TIMEOUT_S"]),
+        since, fend)
+    flines = wx.build_lines(frows, wx.FORECAST_MEASUREMENT)
+    if not dry_run and flines:
+        wx.delete_forecast(env["INFLUX_URL"], env["REQUEST_TIMEOUT_S"])
+        _write_influx(flines, env)
+    typer.echo(f"{'(dry-run) ' if dry_run else ''}wrote {len(lines)} hours ({_hours_span(rows)}), "
+               f"forecast {len(flines)} hours ({_hours_span(frows)})")
 
 
 @app.command(name="weather-backfill", help="気象庁MSMの毎時気象を指定日から確定済みの時刻まで遡って書き込みます。")
@@ -793,7 +822,7 @@ def weather_backfill(
 
     env = _load_env()
     loc = _weather_location(env)
-    until = wx.settled_until(datetime.now().astimezone())
+    until = _weather_settled_until(env, datetime.now().astimezone())
     total = 0
     for s, e in wx.date_chunks(date.fromisoformat(start),
                                datetime.fromtimestamp(until, timezone.utc).date()):

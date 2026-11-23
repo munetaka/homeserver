@@ -6,7 +6,7 @@
 - **`sb`** — SwitchBot 温湿度/CO2センサー(BLE アドバタイズ直接受信)
 - **`el`** — ECHONET Lite 経由の電力系(太陽光発電・分電盤の回路別消費・エアコン・エコキュート)
   と、電気料金の計算(`el cost-update`)・燃料費調整単価の自動取得(`el tariff-fetch`)・
-  気象庁 MSM の毎時気象の取込(`el weather-update`)
+  気象庁 MSM の毎時気象と最新予報の取込(`el weather-update`)
 
 ```mermaid
 flowchart LR
@@ -25,7 +25,7 @@ flowchart LR
     TF -. "取得状態・単価 (tariff_*)" .-> VM
 
     OM["Open-Meteo<br>(気象庁 MSM 5km)"] -- "毎時 HTTPS" --> WU["el weather-update<br>(weather-update.timer)"]
-    WU -- "確定済みの毎時気象 (weather_*)" --> VM
+    WU -- "確定済みの毎時気象 (weather_*)<br>最新予報 (weather_forecast_*)" --> VM
 
     WD["watchdog"] -. 鮮度監視 .-> VM
     VM -. 毎晩バックアップ .-> PC[("pCloud")]
@@ -45,6 +45,7 @@ flowchart LR
   請求書での校正前でもグラフが止まらない
 - 気象: 気象庁 MSM(Open-Meteo 経由、約5km格子・毎時)の気温・湿度・露点・降水・雲量・風・日射
   (全天/直達/散乱)を取込。空調の自動制御に向けた分析(天気と室温・電力の突き合わせ)の材料。
+  確定前の直近と 48 時間先までは最新予報として別系列(`weather_forecast_*`)に毎時書き直す。
   過去分は `el weather-backfill` で遡れる
 - 耐障害設計: 連続エラー時のプロセス自己再起動 + データ鮮度 watchdog(詳細は runbook)
 
@@ -155,7 +156,7 @@ uv run el run --interval 60           # 常駐ループ (echonet.service が使�
 uv run el import-history <dir> --max-day YYYYMMDD   # AiSEG2 履歴CSVの一括取込
 uv run el cost-update                 # 日次kWhの実体化と電気料金メトリクスの更新 (cost-update.timer が毎晩実行)
 uv run el tariff-fetch [--dry-run]    # TEPCO 燃調単価の自動取得 → overlay 追記 (tariff-fetch.timer が週次実行)
-uv run el weather-update [--dry-run]  # 気象庁MSMの毎時気象を確定済みの未取込分だけ書き込み (weather-update.timer が毎時実行)
+uv run el weather-update [--dry-run]  # 気象庁MSMの毎時気象を確定済みの未取込分だけ書き込み、未確定〜48h先の予報を weather_forecast_* に書き直し (weather-update.timer が毎時実行)
 uv run el weather-backfill --start YYYY-MM-DD   # 毎時気象を指定日から遡って取込
 ```
 
