@@ -225,3 +225,30 @@ class TestYearAggregation:
         # タイムスタンプは各年の1/1 0時 (JST)
         jan1_2025_ns = day_ts_ms(date(2025, 1, 1)) * 1_000_000
         assert any(l.endswith(f" {jan1_2025_ns}") for l in lines if "year=2025" in l)
+
+    @responses.activate
+    def test_build_year_lines_writes_kwh_counterparts(self):
+        from cli.cost import build_year_lines
+
+        def reply(request):
+            q = parse_qs(urlparse(request.url).query)["query"][0]
+            value = None
+            if "energy_period_kwh" in q:
+                value = "3800"
+            elif 'energy_day_kwh{kind="generation"}' in q:
+                value = "6000"
+            elif 'energy_day_kwh{kind="sell"}' in q:
+                value = "3500"
+            result = [] if value is None else [{"metric": {}, "value": [0, value]}]
+            return (200, {}, json.dumps({"status": "success", "data": {"result": result}}))
+
+        responses.add_callback(responses.GET, f"{VM}/api/v1/query", callback=reply)
+        lines = build_year_lines(VM, today=date(2025, 12, 1), timeout_s=5)
+        joined = " ".join(lines)
+        # 買電量は請求合計と同じく検針期間 (energy_period_kwh) を開始日の暦年で合計する
+        assert "energy_year,kind=buy,year=2025 kwh=3800.0" in joined
+        assert "energy_year,kind=sell,year=2025 kwh=3500.0" in joined
+        assert "energy_year,kind=generation,year=2025 kwh=6000.0" in joined
+        # 自家消費 = 発電 - 売電 (節約額の元になる量)
+        assert "energy_year,kind=self_consumption,year=2025 kwh=2500.0" in joined
+        assert not any(l.startswith("cost_year") for l in lines)  # 円の元データが無ければ円は書かない

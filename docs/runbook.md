@@ -25,7 +25,7 @@ flowchart LR
     TP["tariff.py の定数<br>(請求書で校正・常に優先)"] --> CU
     OV --> CU
     VM -- "日次 kWh" --> CU
-    CU -- "cost_day / cost_period / cost_year<br>energy_period" --> VM
+    CU -- "cost_day / cost_period / cost_year<br>energy_period / energy_year" --> VM
     TF -- "tariff_* (状態・単価)" --> VM
 
     OM["Open-Meteo (気象庁 MSM)"] -- "HTTPS 毎時" --> WU["weather-update.timer 毎時:20<br>el weather-update"]
@@ -104,10 +104,15 @@ flowchart LR
   (くらし上手L + 燃調月別テーブル + 賦課金 + 軽減措置 + FIT16円)で、**実請求書2ヶ月分を
   1円単位で再現**することをテストで担保(請求書の「電力量料金」「賦課金」は各々円未満切捨て)。
   計算は `cost-update.timer`(毎日00:20)が `el cost-update` を実行して書き込む。
-  同じジョブが `energy_period_kwh{kind=buy|consumption, month, year, mm}`(検針期間の買電量と
-  総消費量=発電+買電−売電)も書く。請求額の前年比較パネルの下に同じ形の kWh パネルを並べ、
-  円の差が単価要因(買電量は同じ)・太陽光要因(総消費は同じ)・生活要因(総消費が違う)の
-  どれかを見分けられるようにしている。consumption は発電/売電が1日でも欠けた期間は書かない。
+  同じジョブが円と対になる kWh も書く: `energy_period_kwh{kind=buy|consumption, month, year, mm}`
+  (検針期間の買電量と総消費量=発電+買電−売電。consumption は発電/売電が1日でも欠けた期間は
+  書かない)と `energy_year_kwh{kind=buy|self_consumption|sell|generation, year}`(暦年合計。
+  集計基準は円と同じで、buy は請求合計と同じ期間開始日基準、他は日次の暦年合計)。
+  ダッシュボードは年間の円 stat の下に kWh の stat(買電↔請求、自家消費↔節約、売電↔売電収入、
+  発電↔太陽光便益)を並べ、請求額の前年比較の右に買電量の前年比較を置く。請求額は
+  買電量 × 単価 + 定額で決まるので、2 本の棒の形が違えば単価(燃調など)の影響と読める。
+  総消費量の棒グラフは「請求額と並べる相手は買電量」として外した(consumption は Explore 用に
+  書き続けている)。
   燃調は 2026-11 分まで定数登録済み(国の料金支援は 2026-10 分で終了)。
 - **気象(気象庁 MSM)**: `weather-update.timer`(毎時:20)が `el weather-update` で Open-Meteo の
   Historical Forecast API(`models=jma_msm`、約5km格子・毎時)から取得し `weather_<field>{source="jma_msm"}` に書く。

@@ -10,7 +10,8 @@
 - energy_period_kwh{kind="buy"|"consumption"} ... 検針期間の買電量・総消費量。請求額の
   前年比較を「単価要因 (円だけ変化) / 太陽光要因 (買電だけ変化) / 生活要因 (消費が変化)」
   に分解して見るためのもの。ラベル・タイムスタンプは cost_period と同じ
-- cost_year_yen{kind, year} ... 暦年合計。savings/sell_income は日次の暦年合計、
+- cost_year_yen{kind, year} / energy_year_kwh{kind=buy|sell|generation|self_consumption, year}
+  ... 暦年合計。savings/sell_income は日次の暦年合計、
   bill は「開始日がその暦年に属する検針期間」の請求合計。タイムスタンプは1月1日。
   保存済みメトリクスから毎回全年を再計算するため、cost-update の再計算窓に依存しない
 """
@@ -152,33 +153,51 @@ def year_window_seconds(year: int) -> int:
 
 
 def build_year_lines(influx_url: str, today: date, timeout_s: float) -> List[str]:
-    """保存済みの cost_day/cost_period から暦年合計を計算して line protocol を返す。
+    """保存済みの cost_day/cost_period/energy_* から暦年合計を計算して line protocol を返す。
 
+    円 (cost_year_yen) と対になる kWh (energy_year_kwh) も書く。集計の基準は円と揃える:
+    buy は bill と同じく「開始日がその暦年の検針期間」の合計、sell/generation/self_consumption は
+    savings/sell_income と同じく日次の暦年合計。self_consumption = generation - sell
+    (節約額の元になる量。節約+売電=太陽光便益 ↔ 自家消費+売電=発電 が成り立つ)。
     評価点は翌年1/1 0時 (進行中の年は未来時刻になるが、窓指定なので問題ない)。
     """
     import requests
+
+    def query_sum(query: str, eval_ts: int):
+        r = requests.get(
+            f"{influx_url}/api/v1/query",
+            params={"query": query, "time": eval_ts},
+            timeout=timeout_s,
+        )
+        r.raise_for_status()
+        result = r.json()["data"]["result"]
+        return float(result[0]["value"][1]) if result else None
 
     lines: List[str] = []
     for year in range(FIRST_DATA_YEAR, today.year + 1):
         eval_ts = int(datetime(year + 1, 1, 1, tzinfo=JST).timestamp())
         window = year_window_seconds(year)
         ts_ns = int(datetime(year, 1, 1, tzinfo=JST).timestamp() * 1000) * 1_000_000
-        queries = {
+        yen_queries = {
             "savings": f'sum(sum_over_time(cost_day_yen{{kind="savings"}}[{window}s]))',
             "sell_income": f'sum(sum_over_time(cost_day_yen{{kind="sell_income"}}[{window}s]))',
             "bill": f'sum(sum_over_time(cost_period_yen{{kind="bill"}}[{window}s]))',
         }
-        for kind, query in queries.items():
-            r = requests.get(
-                f"{influx_url}/api/v1/query",
-                params={"query": query, "time": eval_ts},
-                timeout=timeout_s,
-            )
-            r.raise_for_status()
-            result = r.json()["data"]["result"]
-            if result:
-                yen = float(result[0]["value"][1])
+        for kind, query in yen_queries.items():
+            yen = query_sum(query, eval_ts)
+            if yen is not None:
                 lines.append(f"cost_year,kind={kind},year={year} yen={round(yen, 2)} {ts_ns}")
+        kwh_queries = {
+            "buy": f'sum(sum_over_time(energy_period_kwh{{kind="buy"}}[{window}s]))',
+            "sell": f'sum(sum_over_time(energy_day_kwh{{kind="sell"}}[{window}s]))',
+            "generation": f'sum(sum_over_time(energy_day_kwh{{kind="generation"}}[{window}s]))',
+        }
+        kwh = {kind: query_sum(query, eval_ts) for kind, query in kwh_queries.items()}
+        if kwh["generation"] is not None and kwh["sell"] is not None:
+            kwh["self_consumption"] = kwh["generation"] - kwh["sell"]
+        for kind, value in kwh.items():
+            if value is not None:
+                lines.append(f"energy_year,kind={kind},year={year} kwh={round(value, 3)} {ts_ns}")
     return lines
 
 

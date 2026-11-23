@@ -1341,6 +1341,182 @@
       ]
     },
     {
+      "id": 65,
+      "type": "stat",
+      "title": "年間の買電量・kWh (暦年別, 期間開始日基準)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 54
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(energy_year_kwh{kind=\"buy\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ],
+      "description": "請求合計と同じく「開始日がその暦年の検針期間」の買電量合計。請求額はこの量 × 単価 + 定額で決まる。"
+    },
+    {
+      "id": 66,
+      "type": "stat",
+      "title": "年間の自家消費量・kWh (暦年別)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 54
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(energy_year_kwh{kind=\"self_consumption\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ],
+      "description": "発電のうち家で使った量 (発電 − 売電) の暦年合計。節約額の元になる量。"
+    },
+    {
+      "id": 67,
+      "type": "stat",
+      "title": "年間の売電量・kWh (暦年別)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 54
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(energy_year_kwh{kind=\"sell\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ],
+      "description": "売電量の暦年合計。売電収入の元になる量。"
+    },
+    {
+      "id": 68,
+      "type": "stat",
+      "title": "年間の発電量・kWh (自家消費+売電, 暦年別)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 54
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(energy_year_kwh{kind=\"generation\"}[3y])",
+          "legendFormat": "{{year}}年",
+          "instant": true
+        }
+      ],
+      "description": "発電量の暦年合計 = 自家消費 + 売電。太陽光便益 (節約+売電) の元になる量。"
+    },
+    {
       "id": 50,
       "type": "state-timeline",
       "title": "エアコン運転モード",
@@ -1472,12 +1648,12 @@
       "id": 62,
       "type": "barchart",
       "title": "請求額の前年比較 (請求月別)",
-      "description": "検針期間 (10日〆) の請求見込みを請求月の月番号で揃えて年ごとに並べる。データは 2025-07 請求分から。差の原因は下の kWh パネルと見比べる: 買電量が同じなのに円が違えば単価 (燃調・基本料金) 要因、総消費量が同じなのに買電量が違えば太陽光 (天気) 要因、総消費量そのものが違えば生活の変化。",
+      "description": "検針期間 (10日〆) の請求見込みを請求月の月番号で揃えて年ごとに並べる。データは 2025-07 請求分から。右の買電量と棒の形が違えば単価 (燃調・基本料金など) の影響。",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 59
       },
       "options": {
         "orientation": "auto",
@@ -1536,95 +1712,15 @@
       ]
     },
     {
-      "id": 63,
-      "type": "barchart",
-      "title": "総消費電力量の前年比較 (kWh, 請求月別)",
-      "description": "検針期間 (10日〆) ごとの家全体の消費量 (発電 + 買電 − 売電)。単価や天気に左右されないので、生活の仕方の変化はここに出る。進行中の期間は途中までの値。",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 62
-      },
-      "options": {
-        "orientation": "auto",
-        "xTickLabelRotation": 0,
-        "showValue": "never",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "kwatth",
-          "decimals": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "mm\\year"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "kind": true,
-              "month": true
-            }
-          }
-        },
-        {
-          "id": "groupingToMatrix",
-          "options": {
-            "columnField": "year",
-            "rowField": "mm",
-            "valueField": "Value"
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
-              {
-                "field": "mm\\year"
-              }
-            ]
-          }
-        }
-      ],
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "last_over_time(energy_period_kwh{kind=\"consumption\"}[3y])",
-          "instant": true,
-          "format": "table"
-        }
-      ]
-    },
-    {
       "id": 64,
       "type": "barchart",
       "title": "買電量の前年比較 (kWh, 請求月別)",
-      "description": "検針期間 (10日〆) ごとの買電量 = 請求額の従量部分の元になる量。総消費量との差は太陽光の自家消費分。進行中の期間は途中までの値。",
+      "description": "検針期間 (10日〆) ごとの買電量。請求額はこの量 × 単価 + 定額で決まるので、左の請求額と棒の形が違えば単価 (燃調・基本料金など) の影響。買電量そのものの増減は、生活の変化か太陽光 (天気) のどちらか — 上の年間の自家消費量と見比べる。進行中の期間は途中までの値。",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 62
+        "y": 59
       },
       "options": {
         "orientation": "auto",
@@ -1702,9 +1798,9 @@
       "description": "直近1年+先行分の請求月に適用される燃料費調整単価。出どころ: 定数=tariff.py (請求書で校正済み) / 自動取得=週次 el tariff-fetch の速報値 (請求書が来たら定数へ昇格)。翌月分の行が月末の公表後に自動で増える。",
       "gridPos": {
         "h": 8,
-        "w": 7,
-        "x": 12,
-        "y": 54
+        "w": 16,
+        "x": 0,
+        "y": 67
       },
       "options": {
         "sortBy": [
@@ -1793,9 +1889,9 @@
       "description": "取得=TEPCO 一覧ページの取得・解析の成否。照合=登録済み単価と公表値の一致 (不一致はタイポか支援の未登録)。充足=現在の請求月の単価が登録済みか (赤=料金グラフが止まっている)。",
       "gridPos": {
         "h": 8,
-        "w": 5,
-        "x": 19,
-        "y": 54
+        "w": 8,
+        "x": 16,
+        "y": 67
       },
       "options": {
         "reduceOptions": {
