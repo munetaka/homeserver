@@ -1684,6 +1684,16 @@
           }
         },
         {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "year"
+              }
+            ]
+          }
+        },
+        {
           "id": "groupingToMatrix",
           "options": {
             "columnField": "year",
@@ -1761,6 +1771,16 @@
               "kind": true,
               "month": true
             }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "year"
+              }
+            ]
           }
         },
         {
