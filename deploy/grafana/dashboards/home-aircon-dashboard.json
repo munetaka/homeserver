@@ -193,7 +193,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "日射 (6h前)",
+      "title": "日射 (今, 予報)",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -234,7 +234,7 @@
       },
       "targets": [
         {
-          "expr": "last_over_time(weather_ghi_wm2{source=\"jma_msm\"}[12h])",
+          "expr": "last_over_time(weather_forecast_ghi_wm2{source=\"jma_msm\"}[2h]) or last_over_time(weather_ghi_wm2{source=\"jma_msm\"}[12h])",
           "refId": "A",
           "instant": true
         }
@@ -961,7 +961,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "結果: 温度 と 日射 (実線=室温, 破線=設定, 細線=外気, 右軸=日射W/m²・発電W)",
+      "title": "結果: 温度 と 日射 (実線=室温, 破線=設定, 細線=外気, 点線=予報, 右軸=日射W/m²・発電W)",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -1141,6 +1141,84 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "外気 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "日射 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "unit",
+                "value": "suffix: W/m²"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
@@ -1180,6 +1258,18 @@
           "refId": "G",
           "legendFormat": "日射 (気象MSM)",
           "expr": "weather_ghi_wm2{source=\"jma_msm\"}",
+          "interval": "1h"
+        },
+        {
+          "refId": "H",
+          "legendFormat": "外気 予報 (気象MSM)",
+          "expr": "weather_forecast_temp_c{source=\"jma_msm\"}",
+          "interval": "1h"
+        },
+        {
+          "refId": "I",
+          "legendFormat": "日射 予報 (気象MSM)",
+          "expr": "weather_forecast_ghi_wm2{source=\"jma_msm\"}",
           "interval": "1h"
         }
       ],
@@ -1330,6 +1420,39 @@
                 "value": 1
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "絶対湿度 外気 予報 (気象MSM)"
+            },
+            "properties": [
+              {
+                "id": "custom.spanNulls",
+                "value": 10800000
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    3
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
@@ -1359,6 +1482,12 @@
           "refId": "F",
           "legendFormat": "CO2 寝室",
           "expr": "climate_co2{location=\"home-1F-寝室\"}"
+        },
+        {
+          "refId": "G",
+          "legendFormat": "絶対湿度 外気 予報 (気象MSM)",
+          "expr": "with (t = weather_forecast_temp_c{source=\"jma_msm\"}) 216.7 * (weather_forecast_humidity_pct{source=\"jma_msm\"}/100 * 6.112 * exp(17.62*t/(243.12+t))) / (273.15+t)",
+          "interval": "1h"
         }
       ]
     },
