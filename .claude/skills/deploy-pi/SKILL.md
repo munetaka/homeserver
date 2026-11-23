@@ -20,7 +20,7 @@ description: コミット済みの main をラズパイ (ssh homeserver) の /op
 
 - **コレクター(src/)を変更した場合**: 再起動後60〜90秒待ち、
   `ssh homeserver 'sudo journalctl -u switchbot.service -u echonet.service -n 4 --no-pager'`
-  で `wrote N points`(switchbot: 10前後 / echonet: 31)を確認する。
+  で `wrote N points`(switchbot: 65前後 / echonet: 31。2026-11 時点)を確認する。
 - **ダッシュボード JSON を変更した場合**: Grafana が数十秒以内に自動リロードする。
   `curl -u admin:<pw> http://localhost:3000/api/dashboards/uid/<uid>`(Pi上)で
   変更が反映されたことを確認する。
